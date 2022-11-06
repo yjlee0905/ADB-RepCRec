@@ -1,5 +1,6 @@
 import static java.lang.System.out;
 import service.Parser;
+import service.TransactionManager;
 
 import java.util.List;
 
@@ -9,11 +10,13 @@ public class Test {
         out.println("Hello World");
         Parser parser = new Parser("data/test1.txt");
         List<List<String>> res = parser.readAndParseCommands();
-        for (int i = 0; i < res.size(); i++) {
-            for (int j = 0; j < res.get(i).size(); j++) {
-                System.out.println(res.get(i).get(j));
+        for (List<String> re : res) {
+            for (String s : re) {
+                System.out.println(s);
             }
         }
 
+        TransactionManager testManager = new TransactionManager();
+        testManager.runSimulation();
     }
 }
