@@ -1,31 +1,30 @@
 package model;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class Variable {
-    private Integer version;
+
+    private Integer value;
     private Long commitTime;
     private String committedBy;
-    private Integer value;
+    private boolean isRead;
+    private boolean isWrite;
+    private Map<String, Integer> versionedVal = new HashMap<>(); // key: txId, value: value
+
 
     public Variable(Integer value, Long commitTime, String committedBy) {
         this.value = value;
         this.commitTime = commitTime;
         this.committedBy = committedBy;
-        this.version = 0;
-    }
-
-    public Integer getVersion() {
-        return this.version;
-    }
-
-    public Long getCommitTime() {
-        return this.commitTime;
+        this.isRead = true;
+        this.isWrite = true;
+        this.versionedVal.put("init", value);
     }
 
     public void setCommitTime(Long commitTime) {
         this.commitTime = commitTime;
     }
-
-    public String getCommittedBy() {return this.committedBy;}
 
     public void setCommittedBy(String txId) {
         this.committedBy = txId;
@@ -37,6 +36,14 @@ public class Variable {
 
     public void setValue(Integer value) {
         this.value = value;
-        this.version++;
+    }
+
+    public void setTempValueWithTxId(String txId, Integer value) {
+        versionedVal.put(txId, value);
+        // TODO check need time or not
+    }
+
+    public Integer getFinalTempValueWithTxId(String txId) {
+        return versionedVal.get(txId);
     }
 }
