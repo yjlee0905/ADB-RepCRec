@@ -15,6 +15,8 @@ public class TransactionManager {
 
     private Set<String> readOnlyTx = new HashSet<>();
 
+    private DeadlockDetector detector = new DeadlockDetector();
+
     private void init() {
         for (int i = 1; i < 11; i++) {
             DataManager newSite = new DataManager(i, timer);
@@ -30,6 +32,12 @@ public class TransactionManager {
 
         for (List<String> command: commands) {
             String operation = command.get(0);
+
+//            if (detector.isDeadLock(sites, transactions)) {
+//                System.out.println("Deadlock detected. " + this.timer);
+//            } else {
+//                System.out.println("No deadlock. " + this.timer);
+//            }
 
             if (operation.equals("begin")) {
                 String txId = command.get(1);
@@ -145,7 +153,9 @@ public class TransactionManager {
     private void dump() {
         System.out.println("[Timestamp: " + this.timer + "] Dump");
         for (DataManager site: this.sites) {
+            System.out.print("Site " + site.getId() + " - ");
             site.showVariables();
+            System.out.println();
         }
     }
 
