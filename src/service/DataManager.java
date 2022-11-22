@@ -89,4 +89,12 @@ public class DataManager {
             System.out.print(varName + ":" + this.variables.get(varName).getValue() + "  ");
         }
     }
+
+    public void clearTxId(String txId) {
+        for (String varName: this.lockTable.keySet()) {
+            if (this.lockTable.get(varName).getTxId().equals(txId)) {
+                this.lockTable.remove(varName);
+            }
+        }
+    }
 }

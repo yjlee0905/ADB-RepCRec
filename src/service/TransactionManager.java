@@ -45,7 +45,8 @@ public class TransactionManager {
                 Integer value = Integer.valueOf(command.get(3));
                 write(txId, variableName, value);
             } else if (operation.equals("end")) {
-
+                String txId = command.get(1);
+                end(txId);
             } else if (operation.equals("fail")) {
                 Integer siteId = Integer.valueOf(command.get(1));
                 fail(siteId);
@@ -103,6 +104,7 @@ public class TransactionManager {
 
         if (targets.size() == 0) {
             System.out.println("[Timestamp: " + this.timer + "] Cannot process txId: " + txId + ", because sites that has " + variableName + " are unavailable.");
+            return;
         }
 
         // if there is a one site that cannot get write lock, wait
@@ -125,8 +127,13 @@ public class TransactionManager {
             System.out.println("[Timestamp: " + this.timer + "] " + txId + " does not exist and cannot end this transaction.");
             return;
         }
-        Transaction transaction = this.transactions.get(txId);
 
+        Transaction transaction = this.transactions.get(txId);
+        if (transaction.isAborted()) {
+            processAbortedTx(txId);
+        } else { // commit
+            processCommitTx(txId);
+        }
     }
 
     private void fail(Integer siteId){
@@ -140,5 +147,25 @@ public class TransactionManager {
         for (DataManager site: this.sites) {
             site.showVariables();
         }
+    }
+
+    /*
+    * Transaction aborted case
+    * 1) deadlock detection
+    * 2) site fails
+    * */
+    private void processAbortedTx(String txId) {
+        for (DataManager site: sites) {
+            site.clearTxId(txId);
+        }
+        transactions.remove(txId);
+    }
+
+    private void processCommitTx(String txId) {
+        // TODO split into temp and commit value?
+        for (DataManager site: sites) {
+            site.clearTxId(txId);
+        }
+        transactions.remove(txId);
     }
 }
