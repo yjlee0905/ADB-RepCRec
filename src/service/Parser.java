@@ -22,7 +22,13 @@ public class Parser {
         try {
             Scanner reader = new Scanner(inputFile);
             while (reader.hasNextLine()) {
-                String line = reader.nextLine();
+                String line = reader.nextLine().trim();
+
+                if (line.length() == 0 || line.startsWith("//")) continue;
+                if (line.indexOf("//") > 0) {
+                    line = line.substring(0, line.indexOf("//"));
+                }
+
                 List<String> parsedLine = parseLine(line);
                 parsedCommands.add(parsedLine);
             }
@@ -41,8 +47,8 @@ public class Parser {
         String params = line.substring(openIdx+1, closeIdx);
         String[] splittedParams = params.split(",");
         ArrayList<String> converted = Arrays.stream(splittedParams)
-                        .collect(Collectors
-                        .toCollection(ArrayList::new));
+                        .map(s -> s.trim())
+                        .collect(Collectors.toCollection(ArrayList::new));
 
         List<String> results = new ArrayList<>();
         results.add(command);
