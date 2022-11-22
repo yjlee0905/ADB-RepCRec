@@ -5,6 +5,12 @@ public class Variable {
     private Long commitTime;
     private Integer value;
 
+    public Variable(Integer value, Long commitTime) {
+        this.value = value;
+        this.commitTime = commitTime;
+        this.version = 0;
+    }
+
     public Integer getVersion() {
         return version;
     }
