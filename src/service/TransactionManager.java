@@ -1,9 +1,7 @@
 package service;
 import model.Transaction;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -14,6 +12,8 @@ public class TransactionManager {
     private List<DataManager> sites = new ArrayList<>();
 
     private Map<String, Transaction> transactions = new HashMap<>(); // key: T1, value: Transaction
+
+    private Set<String> readOnlyTx = new HashSet<>();
 
     private void init() {
         for (int i = 1; i < 11; i++) {
@@ -35,7 +35,8 @@ public class TransactionManager {
                 String txId = command.get(1);
                 begin(txId);
             } else if (operation.equals("beginRO")) {
-
+                String txId = command.get(1);
+                beginRO(txId);
             } else if (operation.equals("R")) {
 
             } else if (operation.equals("W")) {
@@ -46,7 +47,8 @@ public class TransactionManager {
             } else if (operation.equals("end")) {
 
             } else if (operation.equals("fail")) {
-
+                Integer siteId = Integer.valueOf(command.get(1));
+                fail(siteId);
             } else if (operation.equals("recover")) {
 
             } else if (operation.equals("dump")) {
@@ -68,6 +70,24 @@ public class TransactionManager {
         Transaction transaction = new Transaction(txId, this.timer);
         this.transactions.put(txId, transaction);
         System.out.println("[Timestamp: " + this.timer + "] Transaction " + txId + " begins.");
+    }
+
+    private void beginRO(String txId) {
+        if (this.transactions.containsKey(txId)) {
+            System.out.println("[Timestamp: " + this.timer + "] " + txId + " has been already started.");
+        }
+
+        Transaction transaction = new Transaction(txId, this.timer);
+        this.transactions.put(txId, transaction);
+        this.readOnlyTx.add(txId);
+        System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + txId + " begins.");
+    }
+
+    private void read(String txId, String variableName) {
+        if (this.readOnlyTx.contains(txId)) {
+            //
+        }
+
     }
 
     private void write(String txId, String variableName, Integer value) {
@@ -102,11 +122,17 @@ public class TransactionManager {
 
     private void end(String txId) {
         if (!this.transactions.containsKey(txId)) {
-            System.out.println(txId + " does not exist and cannot end this transaction.");
+            System.out.println("[Timestamp: " + this.timer + "] " + txId + " does not exist and cannot end this transaction.");
             return;
         }
         Transaction transaction = this.transactions.get(txId);
 
+    }
+
+    private void fail(Integer siteId){
+        System.out.println("[Timestamp: " + this.timer + "] Site: " + siteId + " fails.");
+        this.sites.get(siteId-1).setIsUp(false);
+        this.sites.get(siteId-1).clearLockTable();
     }
 
     private void dump() {

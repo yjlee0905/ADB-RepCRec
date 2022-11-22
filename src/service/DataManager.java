@@ -80,6 +80,10 @@ public class DataManager {
         return false;
     }
 
+    public void clearLockTable() {
+        this.lockTable.clear();
+    }
+
     public void showVariables() {
         for (String varName: this.variables.keySet()) {
             System.out.print(varName + ":" + this.variables.get(varName).getValue() + "  ");
