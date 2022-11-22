@@ -2,22 +2,16 @@ package model;
 
 public class Transaction {
 
-    private final Integer txId;
-    private final String name;
+    private final String txId;
     private final Long timestamp;
 
-    public Transaction(Integer txId, String name, Long timestamp) {
+    public Transaction(String txId, Long timestamp) {
         this.txId = txId;
-        this.name = name;
         this.timestamp = timestamp;
     }
 
-    public Integer getTxId() {
+    public String getTxId() {
         return txId;
-    }
-
-    public String getName() {
-        return name;
     }
 
     public Long getTimestamp() {
