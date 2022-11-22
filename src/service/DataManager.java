@@ -57,6 +57,8 @@ public class DataManager {
 
     public Integer getId() {return this.id;}
 
+    public Map<String, Lock> getLockTable() {return this.lockTable;}
+
     public Integer read(String varName) {
         return variables.get(varName).getValue();
     }
@@ -136,4 +138,5 @@ public class DataManager {
     public void clearTxId(String txId) {
         lockTable.entrySet().removeIf(entry -> entry.getValue().getTxId().equals(txId));
     }
+
 }
