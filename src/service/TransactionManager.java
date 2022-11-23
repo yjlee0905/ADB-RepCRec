@@ -1,4 +1,6 @@
 package service;
+import model.Operation;
+import model.OperationType;
 import model.Transaction;
 
 import java.util.*;
@@ -15,6 +17,11 @@ public class TransactionManager {
 
     private Set<String> readOnlyTx = new HashSet<>();
 
+    // operation queue, T1, T2, T1 은 어떻게 처리??
+    private List<Operation> opQueue = new ArrayList<>();
+
+    private Map<String, ArrayList> failHistories = new HashMap<>(); // key: site, value: fail timestamp
+
     private DeadlockDetector detector = new DeadlockDetector();
 
     private void init() {
@@ -26,13 +33,14 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test1.txt");
+        Parser parser = new Parser("data/test13.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
         for (List<String> command: commands) {
             String operation = command.get(0);
 
+            // TODO implement deadlock
 //            if (detector.isDeadLock(sites, transactions)) {
 //                System.out.println("Deadlock detected. " + this.timer);
 //            } else {
@@ -52,9 +60,11 @@ public class TransactionManager {
                 String variableName = command.get(2);
                 Integer value = Integer.valueOf(command.get(3));
                 write(txId, variableName, value);
+                processOperations();
             } else if (operation.equals("end")) {
                 String txId = command.get(1);
                 end(txId);
+                processOperations();
             } else if (operation.equals("fail")) {
                 Integer siteId = Integer.valueOf(command.get(1));
                 fail(siteId);
@@ -68,7 +78,8 @@ public class TransactionManager {
             this.timer++;
 
         }
-
+        // for debugging
+        dump();
     }
 
     private void begin(String txId) {
@@ -105,29 +116,8 @@ public class TransactionManager {
             return;
         }
 
-        // select write target sites
-        List<DataManager> targets = this.sites.stream()
-                .filter(s -> s.isUp() && s.isExistVariable(variableName))
-                .collect(Collectors.toList());
-
-        if (targets.size() == 0) {
-            System.out.println("[Timestamp: " + this.timer + "] Cannot process txId: " + txId + ", because sites that has " + variableName + " are unavailable.");
-            return;
-        }
-
-        // if there is a one site that cannot get write lock, wait
-        for (DataManager target: targets) {
-            if (!target.isWriteLockAvailable(txId, variableName)) {
-                System.out.println("[Timestamp: " + this.timer + "] " + txId + " waits because of the write lock conflict in site: " + target.getId());
-                return;
-            }
-        }
-
-        // write variables
-        System.out.println("[Timestamp: " + this.timer + "] " + txId + " writes variable: " + variableName + "=" + value);
-        for (DataManager target: targets) {
-            target.write(variableName, value, this.timer, txId);
-        }
+        Operation op = new Operation(OperationType.WRITE, variableName, value, txId, timer);
+        this.opQueue.add(op);
     }
 
     private void end(String txId) {
@@ -138,10 +128,14 @@ public class TransactionManager {
 
         Transaction transaction = this.transactions.get(txId);
         if (transaction.isAborted()) {
+            System.out.println("[Timestamp: " + this.timer + "] " + txId + " is aborted.");
             processAbortedTx(txId);
         } else { // commit
+            System.out.println("[Timestamp: " + this.timer + "] " + txId + " is committed.");
             processCommitTx(txId);
         }
+
+        // process next operation
     }
 
     private void fail(Integer siteId){
@@ -169,13 +163,53 @@ public class TransactionManager {
             site.clearTxId(txId);
         }
         transactions.remove(txId);
+        // temp 초기화?
     }
 
     private void processCommitTx(String txId) {
         // TODO split into temp and commit value?
         for (DataManager site: sites) {
-            site.clearTxId(txId);
+            site.processCommit(txId, timer);
         }
         transactions.remove(txId);
+    }
+
+    private void processOperations() {
+        for (Operation op: opQueue) {
+            if (op.getOperationType().equals(OperationType.WRITE)) {
+                Operation result = processWrite(op.getTxId(), op.getVarName(), op.getValue(), op);
+                if (result != null) {
+                    opQueue.remove(op);
+                    break; // TODO check
+                }
+            }
+        }
+    }
+
+    private Operation processWrite(String txId, String variableName, Integer value, Operation op) {
+        // select write target sites
+        List<DataManager> targets = this.sites.stream()
+                .filter(s -> s.isUp() && s.isExistVariable(variableName))
+                .collect(Collectors.toList());
+
+        if (targets.size() == 0) {
+            System.out.println("[Timestamp: " + this.timer + "] Cannot process txId: " + txId + ", because sites that has " + variableName + " are unavailable.");
+            return null;
+        }
+
+        // if there is a one site that cannot get write lock, wait
+        for (DataManager target: targets) {
+            if (!target.isWriteLockAvailable(txId, variableName)) {
+                System.out.println("[Timestamp: " + this.timer + "] " + txId + " waits because of the write lock conflict in site: " + target.getId());
+                return null;
+            }
+        }
+
+        // write variables
+        for (DataManager target: targets) {
+            target.write(variableName, value, this.timer, txId);
+        }
+        System.out.println("[Timestamp: " + this.timer + "] " + txId + " writes variable: " + variableName + "=" + value);
+        return op;
     }
 }
