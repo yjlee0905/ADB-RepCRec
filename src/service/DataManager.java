@@ -6,13 +6,14 @@ import model.Variable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class DataManager {
 
     private Integer id;
 
-    private Map<String, Lock> lockTable = new HashMap<>(); // key: variable
+    private Map<String, List<Lock>> lockTable = new HashMap<>(); // key: variable
 
     private boolean isUp;
 
@@ -60,7 +61,7 @@ public class DataManager {
 
     public Integer getId() {return this.id;}
 
-    public Map<String, Lock> getLockTable() {return this.lockTable;}
+    public Map<String, List<Lock>> getLockTable() {return this.lockTable;}
 
     public Integer read(String varName) {
         return variables.get(varName).getValue();
@@ -72,7 +73,7 @@ public class DataManager {
 
         // get write lock
         Lock curLock = new Lock(txId, varName, LockType.WRITE);
-        lockTable.put(varName, curLock);
+        lockTable.get(varName).add(curLock);
 
         //        Map<String, Variable> varsFromTxId = this.tempVars.get(txId);
 //
@@ -103,12 +104,15 @@ public class DataManager {
     public boolean isWriteLockAvailable(String txId, String variableName) {
         if (!this.lockTable.containsKey(variableName)) return true;
 
-        Lock lockInfo = this.lockTable.get(variableName);
-        if (lockInfo.getLockType() == LockType.WRITE) {
-            if (lockInfo.getTxId().equals(txId)) return true;
-            // if not TODO implement
-            return false;
+        List<Lock> lockInfo = this.lockTable.get(variableName);
+        for(Lock singleLock : lockInfo) {
+            if (singleLock.getLockType() == LockType.WRITE) {
+                if (singleLock.getTxId().equals(txId)) return true;
+                // if not TODO implement
+                return false;
+            }
         }
+
         // TODO implement
         return false;
     }
@@ -157,7 +161,7 @@ public class DataManager {
     }
 
     public void clearTxId(String txId) {
-        lockTable.entrySet().removeIf(entry -> entry.getValue().getTxId().equals(txId));
+        lockTable.entrySet().removeIf(entry -> entry.getValue().equals(txId));
     }
 
 }
