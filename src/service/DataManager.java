@@ -4,6 +4,7 @@ import model.Lock;
 import model.LockType;
 import model.Variable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,9 +16,11 @@ public class DataManager {
 
     private boolean isUp;
 
-    private Map<String, Variable> variables = new HashMap<>();
+    private Map<String, Variable> variables = new HashMap<>(); // commited value
 
     private Map<String, Variable> tempVars = new HashMap<>(); // key: variable, value: Variable
+
+    // vairable 별 commit history
 
     //  txId <var, Variable>
 //    private Map<String, Map<String, Variable>> tempVars = new HashMap<>();
@@ -119,6 +122,24 @@ public class DataManager {
     }
 
     public void processCommit(String txId, Long timestamp) {
+        for (String varName: tempVars.keySet()) {
+            // 여기서 versionedVal 봐야함
+            Variable variable = tempVars.get(varName);
+            Map<String, Integer> versionedVal = variable.versionedVal;
+
+            for (String versionedTxId: versionedVal.keySet()) {
+                if (versionedTxId.equals(txId)) {
+                    Variable origin = variables.get(varName);
+                    origin.setValue(versionedVal.get(versionedTxId));
+                    origin.setCommitTime(timestamp);
+                    origin.setCommittedBy(txId);
+                    variables.put(varName, origin);
+                }
+
+            }
+
+
+        }
 
         clearTxId(txId);
 

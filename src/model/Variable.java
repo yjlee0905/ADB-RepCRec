@@ -10,7 +10,7 @@ public class Variable {
     private String committedBy;
     private boolean isRead;
     private boolean isWrite;
-    private Map<String, Integer> versionedVal = new HashMap<>(); // key: txId, value: value
+    public Map<String, Integer> versionedVal = new HashMap<>(); // key: txId, value: value
 
 
     public Variable(Integer value, Long commitTime, String committedBy) {
@@ -25,6 +25,8 @@ public class Variable {
     public void setCommitTime(Long commitTime) {
         this.commitTime = commitTime;
     }
+
+    public String getCommittedBy() {return this.committedBy;}
 
     public void setCommittedBy(String txId) {
         this.committedBy = txId;
