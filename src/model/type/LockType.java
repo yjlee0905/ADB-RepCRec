@@ -1,4 +1,4 @@
-package model;
+package model.type;
 
 public enum LockType {
     READ,

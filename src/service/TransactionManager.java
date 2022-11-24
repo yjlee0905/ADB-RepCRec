@@ -1,6 +1,8 @@
 package service;
+import model.History;
 import model.Operation;
-import model.OperationType;
+import model.Variable;
+import model.type.OperationType;
 import model.Transaction;
 
 import java.util.*;
@@ -20,7 +22,7 @@ public class TransactionManager {
     // operation queue, T1, T2, T1 은 어떻게 처리??
     private List<Operation> opQueue = new ArrayList<>();
 
-    private Map<String, ArrayList> failHistories = new HashMap<>(); // key: site, value: fail timestamp
+    private Map<Integer, List<History>> failHistories = new HashMap<>(); // key: site, value: fail timestamp
 
     private DeadlockDetector detector = new DeadlockDetector();
 
@@ -54,7 +56,10 @@ public class TransactionManager {
                 String txId = command.get(1);
                 beginRO(txId);
             } else if (operation.equals("R")) {
-
+                String txId = command.get(1);
+                String varName = command.get(2);
+                read(txId, varName);
+                processOperations();
             } else if (operation.equals("W")) {
                 String txId = command.get(1);
                 String variableName = command.get(2);
@@ -104,10 +109,13 @@ public class TransactionManager {
     }
 
     private void read(String txId, String variableName) {
-        if (this.readOnlyTx.contains(txId)) {
-            //
+        if (!this.transactions.containsKey(txId)) {
+            System.out.println("[Timestamp: " + this.timer + "] Transaction " + txId + " does not exists and cannot start read operation.");
+            return;
         }
 
+        Operation op = new Operation(OperationType.READ, variableName, -1, txId, timer); // Read operation does not need value
+        this.opQueue.add(op);
     }
 
     private void write(String txId, String variableName, Integer value) {
@@ -134,14 +142,17 @@ public class TransactionManager {
             System.out.println("[Timestamp: " + this.timer + "] " + txId + " is committed.");
             processCommitTx(txId);
         }
-
-        // process next operation
     }
 
     private void fail(Integer siteId){
         System.out.println("[Timestamp: " + this.timer + "] Site: " + siteId + " fails.");
         this.sites.get(siteId-1).setIsUp(false);
         this.sites.get(siteId-1).clearLockTable();
+
+        History failHistory = new History(siteId, "", "", timer); // only timestamp is necessary
+        List<History> siteFailHistories = failHistories.get(siteId);
+        siteFailHistories.add(failHistory);
+        failHistories.put(siteId, siteFailHistories);
     }
 
     private void dump() {
@@ -175,15 +186,43 @@ public class TransactionManager {
     }
 
     private void processOperations() {
+        List<Operation> toBeRemoved = new ArrayList<>();
+
         for (Operation op: opQueue) {
             if (op.getOperationType().equals(OperationType.WRITE)) {
                 Operation result = processWrite(op.getTxId(), op.getVarName(), op.getValue(), op);
                 if (result != null) {
-                    opQueue.remove(op);
-                    break; // TODO check
+                    toBeRemoved.add(op);
+//                    opQueue.remove(op);
+//                    break; // TODO check
                 }
             }
+            else if (op.getOperationType().equals(OperationType.READ) && readOnlyTx.contains(op.getTxId())) {
+                // read-only transaction
+                Variable result = processReadOnly(op.getTxId(), op.getVarName());
+                if (result == null) {
+                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " fails to read.");
+                } else {
+                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result.getValue());
+                    toBeRemoved.add(op);
+//                    opQueue.remove(op);
+                }
+            } else if (op.getOperationType().equals(OperationType.READ)) {
+                //TODO read transaction
+            }
         }
+
+        opQueue.removeAll(toBeRemoved);
+    }
+
+    private Variable processReadOnly(String txId, String variableName) {
+        Long readOnlyStartTime = transactions.get(txId).getTimestamp();
+
+        for (DataManager site: sites) {
+            if (!site.isUp() || !site.isExistVariable(variableName)) continue;
+            return site.getSnapshot(variableName, readOnlyStartTime, failHistories.get(site.getId()));
+        }
+        return null;
     }
 
     private Operation processWrite(String txId, String variableName, Integer value, Operation op) {

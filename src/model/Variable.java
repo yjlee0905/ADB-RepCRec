@@ -1,6 +1,8 @@
 package model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Variable {
@@ -10,15 +12,17 @@ public class Variable {
     private String committedBy;
     private boolean isRead;
     private boolean isWrite;
+    private boolean isReplicated;
     public Map<String, Integer> versionedVal = new HashMap<>(); // key: txId, value: value
 
 
-    public Variable(Integer value, Long commitTime, String committedBy) {
+    public Variable(Integer value, Long commitTime, String committedBy, boolean isReplicated) {
         this.value = value;
         this.commitTime = commitTime;
         this.committedBy = committedBy;
         this.isRead = true;
         this.isWrite = true;
+        this.isReplicated = isReplicated;
         this.versionedVal.put("init", value);
     }
 
@@ -39,6 +43,10 @@ public class Variable {
     public void setValue(Integer value) {
         this.value = value;
     }
+
+    public boolean canRead() {return isRead;}
+
+    public boolean isReplicated() {return isReplicated;}
 
     public void setTempValueWithTxId(String txId, Integer value) {
         versionedVal.put(txId, value);

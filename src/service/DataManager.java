@@ -1,11 +1,13 @@
 package service;
 
+import model.History;
 import model.Lock;
-import model.LockType;
+import model.type.LockType;
 import model.Variable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class DataManager {
@@ -20,7 +22,7 @@ public class DataManager {
 
     private Map<String, Variable> tempVars = new HashMap<>(); // key: variable, value: Variable
 
-    // vairable 별 commit history
+    private Map<String, List<History>> commitHistories = new HashMap<>(); // key: variable
 
     //  txId <var, Variable>
 //    private Map<String, Map<String, Variable>> tempVars = new HashMap<>();
@@ -31,9 +33,14 @@ public class DataManager {
 
         for (int i = 1; i <= 10; i++) {
             String variableName = "x" + i * 2;
-            Variable variable = new Variable(i*2*10, time, "init");
+            Variable variable = new Variable(i*2*10, time, "init", true);
             this.variables.put(variableName, variable);
             this.tempVars.put(variableName, variable);
+
+            List<History> commitHistory = new ArrayList<>();
+            History history = new History(id, variableName, "init", time);
+            commitHistory.add(history);
+            this.commitHistories.put(variableName, commitHistory);
 //            Map<String, Variable> temp = new HashMap<>();
 //            temp.put(variableName, variable);
 //            this.tempVars.put(variableName, temp);
@@ -41,17 +48,27 @@ public class DataManager {
 
         if (id % 2 == 0) {
             String variableName1 = "x" + (id - 1);
-            Variable variable1 = new Variable((id - 1)*10, time, "init");
+            Variable variable1 = new Variable((id - 1)*10, time, "init", false);
             this.variables.put(variableName1, variable1);
             this.tempVars.put(variableName1, variable1);
+
+            List<History> commitHistory1 = new ArrayList<>();
+            History history1 = new History(id, variableName1, "init", time);
+            commitHistory1.add(history1);
+            this.commitHistories.put(variableName1, commitHistory1);
 //            Map<String, Variable> temp1 = new HashMap<>();
 //            temp1.put(variableName1, variable1);
 //            this.tempVars.put(variableName1, temp1);
 
             String variableName2 = "x" + (id - 1 + 10);
-            Variable variable2 = new Variable((id - 1 + 10)*10, time, "init");
+            Variable variable2 = new Variable((id - 1 + 10)*10, time, "init", false);
             this.variables.put(variableName2, variable2);
             this.tempVars.put(variableName2, variable2);
+
+            List<History> commitHistory2 = new ArrayList<>();
+            History history2 = new History(id, variableName2, "init", time);
+            commitHistory2.add(history2);
+            this.commitHistories.put(variableName1, commitHistory2);
 //            Map<String, Variable> temp2 = new HashMap<>();
 //            temp2.put(variableName2, variable2);
 //            this.tempVars.put(variableName2, temp2);
@@ -136,11 +153,14 @@ public class DataManager {
                     origin.setCommitTime(timestamp);
                     origin.setCommittedBy(txId);
                     variables.put(varName, origin);
+
+                    // add commit history
+                    List<History> commitHistory = commitHistories.get(varName);
+                    History newHistory = new History(id, varName, txId, timestamp);
+                    commitHistory.add(newHistory);
+                    commitHistories.put(varName, commitHistory);
                 }
-
             }
-
-
         }
 
         clearTxId(txId);
@@ -158,6 +178,28 @@ public class DataManager {
 
     public void clearTxId(String txId) {
         lockTable.entrySet().removeIf(entry -> entry.getValue().getTxId().equals(txId));
+    }
+
+    public Variable getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistory) {
+        Variable variable = variables.get(varName);
+        if (variable.canRead()) {
+            List<History> variableHistory = commitHistories.get(varName);
+            for (History history: variableHistory) { // TODO check whether last or all
+                if (!variable.isReplicated()) {
+                    if (history.getTimestamp() <= readOnlyStartTime) {
+                        return variable;
+                    }
+                    return null;
+                } else { // replicated
+                    if (failHistory == null || failHistory.size() == 0) return variable;
+                    for (History failHis: failHistory) {
+                        if (failHis.getTimestamp() <= readOnlyStartTime) return null;
+                    }
+                    return variable;
+                }
+            }
+        }
+        return null;
     }
 
 }

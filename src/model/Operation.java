@@ -1,5 +1,7 @@
 package model;
 
+import model.type.OperationType;
+
 public class Operation {
 
     private OperationType operationType;

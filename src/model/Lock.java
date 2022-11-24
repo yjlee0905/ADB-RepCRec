@@ -1,5 +1,7 @@
 package model;
 
+import model.type.LockType;
+
 public class Lock {
     private String txId;
     private String variableName;
