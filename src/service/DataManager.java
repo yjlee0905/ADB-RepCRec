@@ -89,7 +89,13 @@ public class DataManager {
 
         // get write lock
         Lock curLock = new Lock(txId, varName, LockType.WRITE);
-        lockTable.get(varName).add(curLock);
+
+        if(!this.lockTable.containsKey(varName)) {
+            this.lockTable.put(varName, new ArrayList<>());
+        }
+
+        this.lockTable.get(varName).add(curLock);
+
 
         //        Map<String, Variable> varsFromTxId = this.tempVars.get(txId);
 //
