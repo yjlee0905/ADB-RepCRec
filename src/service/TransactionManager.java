@@ -19,7 +19,7 @@ public class TransactionManager {
 
     private Set<String> readOnlyTx = new HashSet<>();
 
-    // operation queue, T1, T2, T1 은 어떻게 처리??
+    // TODO operation queue, T1, T2, T1 은 어떻게 처리??
     private List<Operation> opQueue = new ArrayList<>();
 
     private Map<Integer, List<History>> failHistories = new HashMap<>(); // key: site, value: fail timestamp
@@ -30,12 +30,15 @@ public class TransactionManager {
         for (int i = 1; i < 11; i++) {
             DataManager newSite = new DataManager(i, timer);
             this.sites.add(newSite);
+
+            List<History> failHistory = new LinkedList<>();
+            failHistories.put(i, failHistory);
             // timer++; TODO check time should be increased or not when sites are created
         }
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test13.txt");
+        Parser parser = new Parser("data/test7.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -74,7 +77,8 @@ public class TransactionManager {
                 Integer siteId = Integer.valueOf(command.get(1));
                 fail(siteId);
             } else if (operation.equals("recover")) {
-
+                Integer siteId = Integer.valueOf(command.get(1));
+                recover(siteId);
             } else if (operation.equals("dump")) {
                 dump();
             } else {
@@ -144,15 +148,29 @@ public class TransactionManager {
         }
     }
 
-    private void fail(Integer siteId){
+    private void fail(Integer siteId) {
         System.out.println("[Timestamp: " + this.timer + "] Site: " + siteId + " fails.");
         this.sites.get(siteId-1).setIsUp(false);
         this.sites.get(siteId-1).clearLockTable();
+
+        for (String txId: transactions.keySet()) {
+            Transaction transaction = transactions.get(txId);
+            if (!readOnlyTx.contains(txId) && transaction.getVisitedSites().contains(siteId)) {
+                transaction.setIsAborted(true);
+            }
+        }
 
         History failHistory = new History(siteId, "", "", timer); // only timestamp is necessary
         List<History> siteFailHistories = failHistories.get(siteId);
         siteFailHistories.add(failHistory);
         failHistories.put(siteId, siteFailHistories);
+    }
+
+    private void recover(Integer siteId) {
+        System.out.println("[Timestamp: " + this.timer + "] Site: " + siteId + " is recovered.");
+        DataManager site = this.sites.get(siteId-1);
+        site.setIsUp(true);
+        site.setVariablesIsRead(false);
     }
 
     private void dump() {
@@ -209,6 +227,7 @@ public class TransactionManager {
                 }
             } else if (op.getOperationType().equals(OperationType.READ)) {
                 //TODO read transaction
+                System.out.println("[Timestamp: " + this.timer + "] Read Transaction");
             }
         }
 
@@ -240,13 +259,16 @@ public class TransactionManager {
         for (DataManager target: targets) {
             if (!target.isWriteLockAvailable(txId, variableName)) {
                 System.out.println("[Timestamp: " + this.timer + "] " + txId + " waits because of the write lock conflict in site: " + target.getId());
+                target.updateLockTable(variableName, value, timer, txId);
                 return null;
             }
         }
 
         // write variables
+        Transaction currentTx = transactions.get(txId);
         for (DataManager target: targets) {
             target.write(variableName, value, this.timer, txId);
+            currentTx.addVisitedSites(target.getId());
         }
         System.out.println("[Timestamp: " + this.timer + "] " + txId + " writes variable: " + variableName + "=" + value);
         return op;

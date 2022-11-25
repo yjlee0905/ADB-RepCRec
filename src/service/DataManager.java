@@ -14,7 +14,7 @@ public class DataManager {
 
     private Integer id;
 
-    private Map<String, List<Lock>> lockTable = new HashMap<>(); // key: variable
+    private Map<String, List<Lock>> lockTable = new HashMap<>(); // key: variable, value: currently, first TxId has lock
 
     private boolean isUp;
 
@@ -86,10 +86,10 @@ public class DataManager {
     public void write(String varName, Integer value, Long timestamp, String txId) {
         Variable var = tempVars.get(varName);
         var.setTempValueWithTxId(txId, value);
+        updateLockTable(varName, value, timestamp, txId);
 
-        // get write lock
-        Lock curLock = new Lock(txId, varName, LockType.WRITE);
-        lockTable.get(varName).add(curLock);
+
+
 
         //        Map<String, Variable> varsFromTxId = this.tempVars.get(txId);
 //
@@ -104,6 +104,18 @@ public class DataManager {
 //            varsFromTxId.put(varName, original);
 //            this.tempVars.put(txId, varsFromTxId);
 //        }
+    }
+
+    public void updateLockTable(String varName, Integer value, Long timestamp, String txId) {
+        // get write lock
+        Lock curLock = new Lock(txId, varName, LockType.WRITE);
+        if (lockTable.containsKey(varName)) {
+            lockTable.get(varName).add(curLock);
+        } else {
+            List<Lock> locks = new ArrayList<>();
+            locks.add(curLock);
+            lockTable.put(varName, locks);
+        }
     }
 
     public boolean isExistVariable(String variableName) {
@@ -121,13 +133,15 @@ public class DataManager {
         if (!this.lockTable.containsKey(variableName)) return true;
 
         List<Lock> lockInfo = this.lockTable.get(variableName);
-        for(Lock singleLock : lockInfo) {
-            if (singleLock.getLockType() == LockType.WRITE) {
-                if (singleLock.getTxId().equals(txId)) return true;
-                // if not TODO implement
-                return false;
-            }
-        }
+        if (lockInfo.size() == 0 ||
+                (lockInfo.get(0).getLockType() == LockType.WRITE && lockInfo.get(0).getTxId().equals(txId)) ) {return true;}
+//        for(Lock singleLock : lockInfo) {
+//            if (singleLock.getLockType() == LockType.WRITE) {
+//                if (singleLock.getTxId().equals(txId)) return true;
+//                // if not TODO implement
+//                return false;
+//            }
+//        }
 
         // TODO implement
         return false;
@@ -203,6 +217,13 @@ public class DataManager {
             }
         }
         return null;
+    }
+
+    public void setVariablesIsRead(boolean isRead) {
+        for (String varName: variables.keySet()) {
+            Variable variable = variables.get(varName);
+            variable.setIsRead(isRead);
+        }
     }
 
 }
