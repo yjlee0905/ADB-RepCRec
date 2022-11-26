@@ -5,16 +5,15 @@ import model.Lock;
 import model.type.LockType;
 import model.Variable;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class DataManager {
 
     private Integer id;
 
-    private Map<String, List<Lock>> lockTable = new HashMap<>(); // key: variable, value: currently, first TxId has lock
+    private Map<String, String> curLock = new HashMap<>(); // key: variable, value: transaction
+
+    private Map<String, List<Lock>> lockWaitingList = new HashMap<>(); // key: variable, value: currently, first TxId has lock
 
     private boolean isUp;
 
@@ -77,7 +76,7 @@ public class DataManager {
 
     public Integer getId() {return this.id;}
 
-    public Map<String, List<Lock>> getLockTable() {return this.lockTable;}
+    public Map<String, List<Lock>> getLockWaitingList() {return this.lockWaitingList;}
 
     public Integer read(String varName) {
         return variables.get(varName).getValue();
@@ -86,7 +85,18 @@ public class DataManager {
     public void write(String varName, Integer value, Long timestamp, String txId) {
         Variable var = tempVars.get(varName);
         var.setTempValueWithTxId(txId, value);
-        updateLockTable(varName, value, timestamp, txId);
+
+        curLock.put(varName, txId);
+
+        // get write lock
+//        Lock curLock = new Lock(txId, varName, LockType.WRITE);
+//        if (lockWaitingList.containsKey(varName)) {
+//            lockWaitingList.get(varName).add(curLock);
+//        } else {
+//            List<Lock> locks = new ArrayList<>();
+//            locks.add(curLock);
+//            lockWaitingList.put(varName, locks);
+//        }
 
 
 
@@ -106,17 +116,17 @@ public class DataManager {
 //        }
     }
 
-    public void updateLockTable(String varName, Integer value, Long timestamp, String txId) {
-        // get write lock
-        Lock curLock = new Lock(txId, varName, LockType.WRITE);
-        if (lockTable.containsKey(varName)) {
-            lockTable.get(varName).add(curLock);
-        } else {
-            List<Lock> locks = new ArrayList<>();
-            locks.add(curLock);
-            lockTable.put(varName, locks);
-        }
-    }
+//    public void updateLockTable(String varName, Integer value, Long timestamp, String txId) {
+//        // get write lock
+//        Lock curLock = new Lock(txId, varName, LockType.WRITE);
+//        if (lockWaitingList.containsKey(varName)) {
+//            lockWaitingList.get(varName).add(curLock);
+//        } else {
+//            List<Lock> locks = new ArrayList<>();
+//            locks.add(curLock);
+//            lockWaitingList.put(varName, locks);
+//        }
+//    }
 
     public boolean isExistVariable(String variableName) {
         return this.variables.containsKey(variableName);
@@ -130,11 +140,15 @@ public class DataManager {
     }
 
     public boolean isWriteLockAvailable(String txId, String variableName) {
-        if (!this.lockTable.containsKey(variableName)) return true;
+        if (!this.curLock.containsKey(variableName) || this.curLock.get(variableName) == null) return true;
+        return false;
 
-        List<Lock> lockInfo = this.lockTable.get(variableName);
-        if (lockInfo.size() == 0 ||
-                (lockInfo.get(0).getLockType() == LockType.WRITE && lockInfo.get(0).getTxId().equals(txId)) ) {return true;}
+//
+//        if (!this.lockWaitingList.containsKey(variableName)) return true;
+//
+//        List<Lock> lockInfo = this.lockWaitingList.get(variableName);
+//        if (lockInfo.size() == 0 ||
+//                (lockInfo.get(0).getLockType() == LockType.WRITE && lockInfo.get(0).getTxId().equals(txId)) ) {return true;}
 //        for(Lock singleLock : lockInfo) {
 //            if (singleLock.getLockType() == LockType.WRITE) {
 //                if (singleLock.getTxId().equals(txId)) return true;
@@ -142,19 +156,27 @@ public class DataManager {
 //                return false;
 //            }
 //        }
-
-        // TODO implement
-        return false;
     }
 
     public void clearLockTable() {
-        this.lockTable.clear();
+        this.curLock.clear();
+        //this.lockWaitingList.clear();
     }
 
     public void showVariables() {
+        List<Integer> varIds = new ArrayList<>();
         for (String varName: this.variables.keySet()) {
+            varIds.add(Integer.valueOf(varName.substring(1)));
+        }
+        Collections.sort(varIds);
+
+        for (Integer varId: varIds) {
+            String varName = 'x' + varId.toString();
             System.out.print(varName + ":" + this.variables.get(varName).getValue() + "  ");
         }
+//        for (String varName: this.variables.keySet()) {
+//            System.out.print(varName + ":" + this.variables.get(varName).getValue() + "  ");
+//        }
     }
 
     public void processCommit(String txId, Long timestamp) {
@@ -194,7 +216,20 @@ public class DataManager {
     }
 
     public void clearTxId(String txId) {
-        lockTable.entrySet().removeIf(entry -> entry.getValue().equals(txId));
+        // remove current lock for txId
+        curLock.entrySet().removeIf(entry -> entry.getValue().equals(txId));
+
+        // remove transaction from lock wait list
+        for (String varName: lockWaitingList.keySet()) {
+            List<Lock> toBeRemoved = new ArrayList<>();
+            for (Lock lock: lockWaitingList.get(varName)) {
+                if (lock.getTxId().equals(txId)) {
+                    toBeRemoved.add(lock);
+                }
+            }
+            lockWaitingList.get(varName).removeAll(toBeRemoved);
+        }
+        // lockTable.entrySet().removeIf(entry -> entry.getValue().equals(txId));
     }
 
     public Variable getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistory) {

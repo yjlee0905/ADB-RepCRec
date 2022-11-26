@@ -259,7 +259,6 @@ public class TransactionManager {
         for (DataManager target: targets) {
             if (!target.isWriteLockAvailable(txId, variableName)) {
                 System.out.println("[Timestamp: " + this.timer + "] " + txId + " waits because of the write lock conflict in site: " + target.getId());
-                target.updateLockTable(variableName, value, timer, txId);
                 return null;
             }
         }
