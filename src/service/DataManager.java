@@ -156,28 +156,55 @@ public class DataManager {
     }
 
     public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistory) {
+        // TODO works, but need to check during OH
         Variable variable = variables.get(varName);
-        Variable snapshot = variable;
         if (variable.canRead()) {
             List<History> variableHistory = commitHistories.get(varName);
-            for (History history: variableHistory) { // TODO check whether last or all, last부터 check?
-                if (!variable.isReplicated()) {
+            Collections.reverse(variableHistory);
+
+            if (!variable.isReplicated()) {
+                for (History history: variableHistory) {
                     if (history.getTimestamp() <= readOnlyStartTime) {
                         return history.getSnapshotValue();
                     }
-                    return null;
-                } else { // replicated TODO implement
-                    if (failHistory == null || failHistory.size() == 0)
-                        return snapshot.getValue();
-                    for (History failHis: failHistory) {
-                        if (failHis.getTimestamp() <= readOnlyStartTime)
-                            return null;
-                    }
-                    return snapshot.getValue();
                 }
+                return null;
+            } else { // replicated
+                if (failHistory == null || failHistory.size() == 0) {
+                    return variable.getValue();
+                }
+
+                History lastCommit = commitHistories.get(varName).get(0);
+                if (lastCommit.getTimestamp() <= failHistory.get(0).getTimestamp() && failHistory.get(0).getTimestamp() <= readOnlyStartTime) {
+                    return null;
+                } else {
+                    return lastCommit.getSnapshotValue();
+                }
+//                for (History failHis: failHistory) {
+//                    if (lastCommit.getTimestamp() <= failHis.getTimestamp() && failHis.getTimestamp() <= readOnlyStartTime) {
+//                        return null;
+//                    }
+//                }
             }
         }
         return null;
+
+//            for (History history: variableHistory) { // TODO check whether last or all, last부터 check?
+//                if (!variable.isReplicated()) {
+//                    if (history.getTimestamp() <= readOnlyStartTime) {
+//                        return history.getSnapshotValue();
+//                    }
+//                    return null;
+//                } else { // replicated TODO implement
+//                    if (failHistory == null || failHistory.size() == 0)
+//                        return snapshot.getValue();
+//                    for (History failHis: failHistory) {
+//                        if (failHis.getTimestamp() <= readOnlyStartTime)
+//                            return null;
+//                    }
+//                    return snapshot.getValue();
+//                }
+//            }
     }
 
     public void setVariablesIsRead(boolean isRead) {
