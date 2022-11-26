@@ -171,6 +171,7 @@ public class TransactionManager {
         DataManager site = this.sites.get(siteId-1);
         site.setIsUp(true);
         site.setVariablesIsRead(false);
+        // 이후에 write가 한번 발생하면 그 때는 read가 가능해진다. from test3.5 comment
     }
 
     private void dump() {
@@ -247,11 +248,18 @@ public class TransactionManager {
             return null;
         }
 
+        Transaction currentTx = transactions.get(txId);
+        Integer readResult = null;
         for (DataManager target: targets) {
-            Integer readResult = target.read(variableName, txId);
-            if (readResult != null) return readResult;
+            Integer resultFromSite = target.read(variableName, txId);
+            // currentTx.addVisitedSites(target.getId()); // TODO read는 언제를 site visit으로 보는지
+//            if (readResult != null) return readResult; // TODO read는 replicated의 경우 하나만 유효하면 바로 읽으면 되는지 그렇다면 visited는 어떻게 판별?
+            if (resultFromSite != null) {
+                currentTx.addVisitedSites(target.getId());
+                readResult = resultFromSite;
+            }
         }
-        return null;
+        return readResult;
     }
 
     private Integer processReadOnly(String txId, String variableName) {
