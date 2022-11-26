@@ -12,7 +12,7 @@ public class DataManager {
 
     private Integer id;
 
-    private Map<String, LockTable> curLock = new HashMap<>(); // key: variable, value: transaction
+    private Map<String, LockTable> curLock = new HashMap<>(); // key: variable, value: LockTable
 
     private Map<String, List<Lock>> lockWaitingList = new HashMap<>(); // key: variable, value: currently, first TxId has lock
 
@@ -23,7 +23,6 @@ public class DataManager {
     private Map<String, Variable> tempVars = new HashMap<>(); // key: variable, value: Variable
 
     private Map<String, List<History>> commitHistories = new HashMap<>(); // key: variable
-
 
     public DataManager(Integer id, Long time) {
         this.id = id;
@@ -65,6 +64,8 @@ public class DataManager {
     }
 
     public Integer getId() {return this.id;}
+
+    public Map<String, LockTable> getCurLock() { return curLock;}
 
     public Map<String, List<Lock>> getLockWaitingList() {return this.lockWaitingList;}
 
