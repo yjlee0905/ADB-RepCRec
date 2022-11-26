@@ -254,7 +254,8 @@ public class DataManager {
     public void setVariablesIsRead(boolean isRead) {
         for (String varName: variables.keySet()) {
             Variable variable = variables.get(varName);
-            variable.setIsRead(isRead);
+            // if variable is not replicated, this can be read
+            if (variable.isReplicated()) variable.setIsRead(isRead);
         }
     }
 
