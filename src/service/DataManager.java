@@ -2,6 +2,7 @@ package service;
 
 import model.History;
 import model.Lock;
+import model.LockTable;
 import model.Variable;
 import model.type.LockType;
 
@@ -11,7 +12,7 @@ public class DataManager {
 
     private Integer id;
 
-    private Map<String, Lock> curLock = new HashMap<>(); // key: variable, value: transaction
+    private Map<String, LockTable> curLock = new HashMap<>(); // key: variable, value: transaction
 
     private Map<String, List<Lock>> lockWaitingList = new HashMap<>(); // key: variable, value: currently, first TxId has lock
 
@@ -67,8 +68,50 @@ public class DataManager {
 
     public Map<String, List<Lock>> getLockWaitingList() {return this.lockWaitingList;}
 
-    public Integer read(String varName) {
-        return variables.get(varName).getValue();
+//    public Integer read(String varName) {
+//        return variables.get(varName).getValue();
+//    }
+
+    public Integer read(String varName, String txId) {
+        Variable variable = variables.get(varName);
+        if (!variable.canRead()) {
+            return null;
+        }
+
+        if (!curLock.containsKey(varName)) {
+            Lock readLock = new Lock(txId, varName, LockType.READ);
+            HashSet<String> readLocks = new HashSet<>();
+            readLocks.add(txId);
+            LockTable lockTable = new LockTable(readLock, readLocks);
+            curLock.put(varName, lockTable);
+            return variable.getValue();
+        }
+
+        Lock curLockForVar = curLock.get(varName).getCurLock();
+        if (curLockForVar.getLockType().equals(LockType.READ)) {
+            if (curLock.get(varName).isTxHoldReadLock(txId)) {
+                return variable.getValue();
+
+                // TODO need write lock check
+            } else {
+                LockTable curLockTable = curLock.get(varName);
+                curLockTable.setReadLock(txId);
+                return variable.getValue();
+            }
+
+        } else if (curLockForVar.getLockType().equals(LockType.WRITE)) {
+            return null;
+        }
+
+//        // TODO shared lock in OH
+//        if (!curLock.containsKey(varName) ||
+//                (curLock.get(varName).equals(txId)) && curLock.get(varName).getCurLock().getLockType().equals(LockType.READ)) {
+//            Lock readLock = new Lock(txId, varName, LockType.READ);
+//            curLock.put(varName, readLock);
+//            return variable.getValue();
+//        }
+
+        return null;
     }
 
     public void write(String varName, Integer value, Long timestamp, String txId) {
@@ -76,7 +119,8 @@ public class DataManager {
         var.setTempValueWithTxId(txId, value);
 
         Lock lock = new Lock(txId, varName, LockType.WRITE);
-        curLock.put(varName, lock);
+        LockTable lockTable = new LockTable(lock);
+        curLock.put(varName, lockTable);
     }
 
     public boolean isExistVariable(String variableName) {
@@ -141,7 +185,7 @@ public class DataManager {
 
     public void clearTxId(String txId) {
         // remove current lock for txId
-        curLock.entrySet().removeIf(entry -> entry.getValue().getTxId().equals(txId));
+        curLock.entrySet().removeIf(entry -> entry.getValue().getCurLock().getTxId().equals(txId));
 
         // remove transaction from lock wait list
         for (String varName: lockWaitingList.keySet()) {

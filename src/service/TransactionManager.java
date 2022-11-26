@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test2.txt");
+        Parser parser = new Parser("data/test13.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -224,11 +224,34 @@ public class TransactionManager {
                 }
             } else if (op.getOperationType().equals(OperationType.READ)) {
                 //TODO read transaction
-                System.out.println("[Timestamp: " + this.timer + "] Read Transaction");
+                Integer result = processRead(op.getTxId(), op.getVarName());
+                if (result == null) {
+                    System.out.println("[Timestamp: " + this.timer + "] Read fails");
+                } else {
+                    System.out.println("[Timestamp: " + this.timer + "] Read Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
+                    toBeRemoved.add(op);
+                }
             }
         }
 
         opQueue.removeAll(toBeRemoved);
+    }
+
+    private Integer processRead(String txId, String variableName) {
+        List<DataManager> targets = this.sites.stream()
+                .filter(s -> s.isUp() && s.isExistVariable(variableName))
+                .collect(Collectors.toList());
+
+        if (targets.size() == 0) {
+            System.out.println("[Timestamp: " + this.timer + "] Cannot process txId: " + txId + ", because sites that has " + variableName + " are unavailable.");
+            return null;
+        }
+
+        for (DataManager target: targets) {
+            Integer readResult = target.read(variableName, txId);
+            if (readResult != null) return readResult;
+        }
+        return null;
     }
 
     private Integer processReadOnly(String txId, String variableName) {
