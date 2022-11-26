@@ -35,7 +35,7 @@ public class DataManager {
             this.tempVars.put(variableName, variable);
 
             List<History> commitHistory = new ArrayList<>();
-            History history = new History(id, variableName, "init", time);
+            History history = new History(id, variableName, i*2*10, "init", time);
             commitHistory.add(history);
             this.commitHistories.put(variableName, commitHistory);
         }
@@ -47,7 +47,7 @@ public class DataManager {
             this.tempVars.put(variableName1, variable1);
 
             List<History> commitHistory1 = new ArrayList<>();
-            History history1 = new History(id, variableName1, "init", time);
+            History history1 = new History(id, variableName1, (id - 1)*10, "init", time);
             commitHistory1.add(history1);
             this.commitHistories.put(variableName1, commitHistory1);
 
@@ -57,9 +57,9 @@ public class DataManager {
             this.tempVars.put(variableName2, variable2);
 
             List<History> commitHistory2 = new ArrayList<>();
-            History history2 = new History(id, variableName2, "init", time);
+            History history2 = new History(id, variableName2, (id - 1 + 10)*10, "init", time);
             commitHistory2.add(history2);
-            this.commitHistories.put(variableName1, commitHistory2);
+            this.commitHistories.put(variableName2, commitHistory2);
         }
     }
 
@@ -129,7 +129,7 @@ public class DataManager {
 
                     // add commit history
                     List<History> commitHistory = commitHistories.get(varName);
-                    History newHistory = new History(id, varName, txId, timestamp);
+                    History newHistory = new History(id, varName, origin.getValue(), txId, timestamp);
                     commitHistory.add(newHistory);
                     commitHistories.put(varName, commitHistory);
                 }
@@ -155,22 +155,25 @@ public class DataManager {
         }
     }
 
-    public Variable getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistory) {
+    public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistory) {
         Variable variable = variables.get(varName);
+        Variable snapshot = variable;
         if (variable.canRead()) {
             List<History> variableHistory = commitHistories.get(varName);
-            for (History history: variableHistory) { // TODO check whether last or all
+            for (History history: variableHistory) { // TODO check whether last or all, last부터 check?
                 if (!variable.isReplicated()) {
                     if (history.getTimestamp() <= readOnlyStartTime) {
-                        return variable;
+                        return history.getSnapshotValue();
                     }
                     return null;
-                } else { // replicated
-                    if (failHistory == null || failHistory.size() == 0) return variable;
+                } else { // replicated TODO implement
+                    if (failHistory == null || failHistory.size() == 0)
+                        return snapshot.getValue();
                     for (History failHis: failHistory) {
-                        if (failHis.getTimestamp() <= readOnlyStartTime) return null;
+                        if (failHis.getTimestamp() <= readOnlyStartTime)
+                            return null;
                     }
-                    return variable;
+                    return snapshot.getValue();
                 }
             }
         }

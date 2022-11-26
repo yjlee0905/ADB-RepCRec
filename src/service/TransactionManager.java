@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test7.txt");
+        Parser parser = new Parser("data/test13.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -160,7 +160,7 @@ public class TransactionManager {
             }
         }
 
-        History failHistory = new History(siteId, "", "", timer); // only timestamp is necessary
+        History failHistory = new History(siteId, "", null,  "", timer); // only timestamp is necessary
         List<History> siteFailHistories = failHistories.get(siteId);
         siteFailHistories.add(failHistory);
         failHistories.put(siteId, siteFailHistories);
@@ -215,11 +215,11 @@ public class TransactionManager {
             }
             else if (op.getOperationType().equals(OperationType.READ) && readOnlyTx.contains(op.getTxId())) {
                 // read-only transaction
-                Variable result = processReadOnly(op.getTxId(), op.getVarName());
+                Integer result = processReadOnly(op.getTxId(), op.getVarName());
                 if (result == null) {
                     System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " fails to read.");
                 } else {
-                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result.getValue());
+                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
                     toBeRemoved.add(op);
                 }
             } else if (op.getOperationType().equals(OperationType.READ)) {
@@ -231,14 +231,16 @@ public class TransactionManager {
         opQueue.removeAll(toBeRemoved);
     }
 
-    private Variable processReadOnly(String txId, String variableName) {
+    private Integer processReadOnly(String txId, String variableName) {
+        Integer snapshot = null;
         Long readOnlyStartTime = transactions.get(txId).getTimestamp();
 
         for (DataManager site: sites) {
             if (!site.isUp() || !site.isExistVariable(variableName)) continue;
-            return site.getSnapshot(variableName, readOnlyStartTime, failHistories.get(site.getId()));
+            snapshot = site.getSnapshot(variableName, readOnlyStartTime, failHistories.get(site.getId()));
+            if (snapshot != null) return snapshot;
         }
-        return null;
+        return snapshot;
     }
 
     private Operation processWrite(String txId, String variableName, Integer value, Operation op) {
