@@ -211,8 +211,6 @@ public class TransactionManager {
                 Operation result = processWrite(op.getTxId(), op.getVarName(), op.getValue(), op);
                 if (result != null) {
                     toBeRemoved.add(op);
-//                    opQueue.remove(op);
-//                    break; // TODO check
                 }
             }
             else if (op.getOperationType().equals(OperationType.READ) && readOnlyTx.contains(op.getTxId())) {
@@ -223,7 +221,6 @@ public class TransactionManager {
                 } else {
                     System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result.getValue());
                     toBeRemoved.add(op);
-//                    opQueue.remove(op);
                 }
             } else if (op.getOperationType().equals(OperationType.READ)) {
                 //TODO read transaction
