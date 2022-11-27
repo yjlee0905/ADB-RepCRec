@@ -69,6 +69,7 @@ public class DataManager {
 
     public Map<String, List<Lock>> getLockWaitingList() {return this.lockWaitingList;}
 
+
 //    public Integer read(String varName) {
 //        return variables.get(varName).getValue();
 //    }
@@ -122,6 +123,17 @@ public class DataManager {
         Lock lock = new Lock(txId, varName, LockType.WRITE);
         LockTable lockTable = new LockTable(lock);
         curLock.put(varName, lockTable);
+    }
+
+    public void updateWriteLockWaitingList(String varName, Integer value, Long timestamp, String txId) {
+        Lock targetLock = new Lock(txId, varName, LockType.WRITE);
+        if (lockWaitingList.containsKey(varName)) {
+            lockWaitingList.get(varName).add(targetLock);
+        } else {
+            List<Lock> locks = new ArrayList<>();
+            locks.add(targetLock);
+            lockWaitingList.put(varName, locks);
+        }
     }
 
     public boolean isExistVariable(String variableName) {
