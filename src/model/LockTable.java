@@ -19,12 +19,22 @@ public class LockTable {
 
     public Lock getCurLock() {return curLock;}
 
+    public void setCurLock(Lock currentLock) { curLock = currentLock; }
+
     public boolean isTxHoldReadLock(String txId) {
         return readLocks.contains(txId);
     }
 
+    public HashSet getReadLocks() {return readLocks;}
+
     public void setReadLock(String txId) {
         readLocks.add(txId);
+    }
+
+    public void releaseReadLock(String txId) {
+        if (!readLocks.contains(txId)) return;
+        readLocks.remove(txId);
+        System.out.println(readLocks);
     }
 
 }

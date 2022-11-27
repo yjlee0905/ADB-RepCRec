@@ -80,7 +80,7 @@ public class DataManager {
             return null;
         }
 
-        if (!curLock.containsKey(varName)) {
+        if (!curLock.containsKey(varName) || curLock.get(varName).getCurLock() == null) {
             Lock readLock = new Lock(txId, varName, LockType.READ);
             HashSet<String> readLocks = new HashSet<>();
             readLocks.add(txId);
@@ -124,7 +124,7 @@ public class DataManager {
     }
 
     public void write(String varName, Integer value, Long timestamp, String txId) {
-        if (!curLock.containsKey(varName) || curLock.get(varName) == null) {
+        if (!curLock.containsKey(varName) || curLock.get(varName) == null || curLock.get(varName).getCurLock() == null) {
             Lock lock = new Lock(txId, varName, LockType.WRITE);
             LockTable lockTable = new LockTable(lock);
             curLock.put(varName, lockTable);
@@ -163,7 +163,7 @@ public class DataManager {
     }
 
     public boolean isWriteLockAvailable(String txId, String variableName) {
-        if (!this.curLock.containsKey(variableName) || this.curLock.get(variableName) == null) return true;
+        if (!this.curLock.containsKey(variableName) || this.curLock.get(variableName).getCurLock() == null) return true;
         return false;
     }
 
@@ -214,8 +214,28 @@ public class DataManager {
 
     public void clearTxId(String txId) {
         // remove current lock for txId
-        curLock.entrySet().removeIf(entry -> entry.getValue().getCurLock().getTxId().equals(txId));
+        //curLock.entrySet().removeIf(entry -> entry.getValue().getCurLock().getTxId().equals(txId));
 
+        for (String varName: curLock.keySet()) {
+            LockTable lockTable = curLock.get(varName);
+
+            if (lockTable.getCurLock() == null) return;
+
+            Lock currentLock = lockTable.getCurLock();
+            if (currentLock.getLockType() == LockType.WRITE && currentLock.getTxId().equals(txId)) {
+                lockTable.setCurLock(null);
+            } else if (currentLock.getLockType() == LockType.READ) {
+                lockTable.releaseReadLock(txId);
+                if (lockTable.getReadLocks() == null || lockTable.getReadLocks().size() == 0) {
+                    lockTable.setCurLock(null);
+                }
+            }
+        }
+
+        // TODO update locktable
+    }
+
+    public void clearTxIdFromLockWaitingList(String txId) {
         // remove transaction from lock wait list
         for (String varName: lockWaitingList.keySet()) {
             List<Lock> toBeRemoved = new ArrayList<>();
@@ -227,6 +247,8 @@ public class DataManager {
             lockWaitingList.get(varName).removeAll(toBeRemoved);
         }
     }
+
+
 
     public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistory) {
         // TODO works, but need to check during OH

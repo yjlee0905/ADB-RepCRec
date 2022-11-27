@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test20.txt");
+        Parser parser = new Parser("data/test19.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -204,8 +204,18 @@ public class TransactionManager {
     private void processAbortedTx(String txId) {
         for (DataManager site: sites) {
             site.clearTxId(txId);
+            site.clearTxIdFromLockWaitingList(txId);
         }
         transactions.remove(txId);
+
+        // remove operations that occurred by txId
+        List<Operation> toBeRemoved = new ArrayList<>();
+        for (Operation operation: opQueue) {
+            if (operation.getTxId().equals(txId)) {
+                toBeRemoved.add(operation);
+            }
+        }
+        opQueue.removeAll(toBeRemoved);
         // temp 초기화?
     }
 
