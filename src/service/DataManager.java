@@ -255,7 +255,7 @@ public class DataManager {
 
 
 
-    public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistory) {
+    public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistories) {
         // TODO works, but need to check during OH
         Variable variable = variables.get(varName);
         if (variable.canRead()) {
@@ -270,16 +270,18 @@ public class DataManager {
                 }
                 return null;
             } else { // replicated
-                if (failHistory == null || failHistory.size() == 0) {
+                if (failHistories == null || failHistories.size() == 0) {
                     return variable.getValue();
                 }
 
                 History lastCommit = commitHistories.get(varName).get(0);
-                if (lastCommit.getTimestamp() <= failHistory.get(0).getTimestamp() && failHistory.get(0).getTimestamp() <= readOnlyStartTime) {
-                    return null;
-                } else {
-                    return lastCommit.getSnapshotValue();
+                for (History failHistory: failHistories) {
+                    if (lastCommit.getTimestamp() <= failHistory.getTimestamp() && failHistory.getTimestamp() <= readOnlyStartTime) {
+                        return null;
+                    }
                 }
+                return lastCommit.getSnapshotValue();
+
 //                for (History failHis: failHistory) {
 //                    if (lastCommit.getTimestamp() <= failHis.getTimestamp() && failHis.getTimestamp() <= readOnlyStartTime) {
 //                        return null;
