@@ -102,7 +102,14 @@ public class DataManager {
             }
 
         } else if (curLockForVar.getLockType().equals(LockType.WRITE)) {
-            return null;
+            if (curLockForVar.getTxId().equals(txId)) {
+                // read temp value
+                return variables.get(varName).versionedVal.get(txId);
+            } else {
+                // TODO add lock queue
+                // updateWriteLockWaitingList(varName, );
+                return null;
+            }
         }
 
 //        // TODO shared lock in OH
@@ -117,12 +124,20 @@ public class DataManager {
     }
 
     public void write(String varName, Integer value, Long timestamp, String txId) {
-        Variable var = tempVars.get(varName);
-        var.setTempValueWithTxId(txId, value);
+        if (!curLock.containsKey(varName) || curLock.get(varName) == null) {
+            Lock lock = new Lock(txId, varName, LockType.WRITE);
+            LockTable lockTable = new LockTable(lock);
+            curLock.put(varName, lockTable);
 
-        Lock lock = new Lock(txId, varName, LockType.WRITE);
-        LockTable lockTable = new LockTable(lock);
-        curLock.put(varName, lockTable);
+            Variable var = tempVars.get(varName);
+            var.setTempValueWithTxId(txId, value);
+        } else if (curLock.get(varName).getCurLock().getLockType().equals(LockType.WRITE) && curLock.get(varName).getCurLock().getTxId().equals(txId)) {
+            Variable var = tempVars.get(varName);
+            var.setTempValueWithTxId(txId, value);
+        } else {
+            System.out.println("promote read to write");
+        }
+        // TODO check replicated variable changed to isRead > X 아닌 듯?
     }
 
     public void updateWriteLockWaitingList(String varName, Integer value, Long timestamp, String txId) {
@@ -182,6 +197,7 @@ public class DataManager {
                     origin.setValue(versionedVal.get(versionedTxId));
                     origin.setCommitTime(timestamp);
                     origin.setCommittedBy(txId);
+                    origin.setIsRead(true);
                     variables.put(varName, origin);
 
                     // add commit history
