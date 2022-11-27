@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("ADB-RepCRec/data/test1.txt");
+        Parser parser = new Parser("data/test20.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -57,13 +57,13 @@ public class TransactionManager {
 //                }
 //            }
 
-            // TODO implement deadlock
-            if (detector.isDeadLock(sites, transactions)) {
-                System.out.println("Deadlock detected. " + this.timer);
-//                detector.getVictimAbortionTxID()
-            } else {
-                System.out.println("No deadlock. " + this.timer);
-            }
+//            // TODO implement deadlock
+//            if (detector.isDeadLock(sites, transactions)) {
+//                System.out.println("Deadlock detected. " + this.timer);
+////                detector.getVictimAbortionTxID()
+//            } else {
+//                System.out.println("No deadlock. " + this.timer);
+//            }
 
             if (operation.equals("begin")) {
                 String txId = command.get(1);
@@ -302,7 +302,7 @@ public class TransactionManager {
         for (DataManager target: targets) {
             if (!target.isWriteLockAvailable(txId, variableName)) {
                 System.out.println("[Timestamp: " + this.timer + "] " + txId + " waits because of the write lock conflict in site: " + target.getId());
-                target.updateWriteLockWaitingList(variableName, value,this.timer, txId);
+                // target.updateWriteLockWaitingList(variableName, value,this.timer, txId);
                 return null;
             }
         }
