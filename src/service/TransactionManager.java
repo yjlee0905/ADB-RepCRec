@@ -44,25 +44,9 @@ public class TransactionManager {
 
         for (List<String> command: commands) {
             String operation = command.get(0);
-
-//            for(DataManager site : sites) {
-//                if(operation.equals("R")) {
-//                    site.updateWriteLockWaitingList(
-//                            command.get(1), Integer.valueOf(command.get(3)) ,this.timer, command.get(2));
-//                } else if (operation.equals("W")) {
-//                    if(!site.getCurLock().isEmpty()) {
-//                        site.updateWriteLockWaitingList(
-//                                command.get(1), Integer.valueOf(command.get(3)),this.timer, command.get(2));
-//                    }
-//                }
-//            }
-
             // TODO implement deadlock
             if (detector.isDeadLock(sites, transactions)) {
                 System.out.println("Deadlock detected. " + this.timer);
-//                detector.getVictimAbortionTxID()
-            } else {
-                System.out.println("No deadlock. " + this.timer);
             }
 
             if (operation.equals("begin")) {
