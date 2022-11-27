@@ -19,7 +19,9 @@ public class LockTable {
 
     public Lock getCurLock() {return curLock;}
 
-    public void setCurLock(Lock currentLock) { curLock = currentLock; }
+    public void setCurLock(Lock currentLock) {
+        curLock = currentLock;
+    }
 
     public boolean isTxHoldReadLock(String txId) {
         return readLocks.contains(txId);
@@ -34,7 +36,6 @@ public class LockTable {
     public void releaseReadLock(String txId) {
         if (!readLocks.contains(txId)) return;
         readLocks.remove(txId);
-        System.out.println(readLocks);
     }
 
 }

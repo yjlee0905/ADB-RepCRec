@@ -207,9 +207,14 @@ public class DataManager {
                     commitHistories.put(varName, commitHistory);
                 }
             }
+
+            // temporary value remove
+            versionedVal.keySet().removeIf(key -> key.equals(txId));
         }
 
         clearTxId(txId);
+
+        // TODO update lock table
     }
 
     public void clearTxId(String txId) {
