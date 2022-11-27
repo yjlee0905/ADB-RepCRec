@@ -38,19 +38,32 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test13.txt");
+        Parser parser = new Parser("ADB-RepCRec/data/test1.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
         for (List<String> command: commands) {
             String operation = command.get(0);
 
-            // TODO implement deadlock
-//            if (detector.isDeadLock(sites, transactions)) {
-//                System.out.println("Deadlock detected. " + this.timer);
-//            } else {
-//                System.out.println("No deadlock. " + this.timer);
+//            for(DataManager site : sites) {
+//                if(operation.equals("R")) {
+//                    site.updateWriteLockWaitingList(
+//                            command.get(1), Integer.valueOf(command.get(3)) ,this.timer, command.get(2));
+//                } else if (operation.equals("W")) {
+//                    if(!site.getCurLock().isEmpty()) {
+//                        site.updateWriteLockWaitingList(
+//                                command.get(1), Integer.valueOf(command.get(3)),this.timer, command.get(2));
+//                    }
+//                }
 //            }
+
+            // TODO implement deadlock
+            if (detector.isDeadLock(sites, transactions)) {
+                System.out.println("Deadlock detected. " + this.timer);
+//                detector.getVictimAbortionTxID()
+            } else {
+                System.out.println("No deadlock. " + this.timer);
+            }
 
             if (operation.equals("begin")) {
                 String txId = command.get(1);
@@ -184,10 +197,10 @@ public class TransactionManager {
     }
 
     /*
-    * Transaction aborted case
-    * 1) deadlock detection
-    * 2) site fails
-    * */
+     * Transaction aborted case
+     * 1) deadlock detection
+     * 2) site fails
+     * */
     private void processAbortedTx(String txId) {
         for (DataManager site: sites) {
             site.clearTxId(txId);
@@ -289,6 +302,7 @@ public class TransactionManager {
         for (DataManager target: targets) {
             if (!target.isWriteLockAvailable(txId, variableName)) {
                 System.out.println("[Timestamp: " + this.timer + "] " + txId + " waits because of the write lock conflict in site: " + target.getId());
+                target.updateWriteLockWaitingList(variableName, value,this.timer, txId);
                 return null;
             }
         }
