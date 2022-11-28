@@ -36,6 +36,7 @@ public class LockTable {
     }
 
     public void releaseReadLock(String txId) {
+
         if (!readLocks.contains(txId)) return;
         readLocks.remove(txId);
     }

@@ -7,6 +7,7 @@ import model.Variable;
 import model.type.LockType;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class DataManager {
 
@@ -96,9 +97,15 @@ public class DataManager {
 
                 // TODO need write lock check
             } else {
-                LockTable curLockTable = curLock.get(varName);
-                curLockTable.setReadLock(txId);
-                return variable.getValue();
+                if (checkWriteLockInWaitingList(varName)) {
+                    addToLockWaitingList(varName, txId, LockType.READ);
+                    return null;
+                } else {
+                    LockTable curLockTable = curLock.get(varName);
+                    curLockTable.setReadLock(txId);
+                    return variable.getValue();
+                }
+
             }
 
         } else if (curLockForVar.getLockType().equals(LockType.WRITE)) {
@@ -108,6 +115,7 @@ public class DataManager {
             } else {
                 // TODO add lock queue
                 // updateWriteLockWaitingList(varName, );
+                addToLockWaitingList(varName, txId, LockType.READ);
                 return null;
             }
         }
@@ -138,7 +146,7 @@ public class DataManager {
             LockTable lockInfo = curLock.get(varName);
             HashSet<String> curReadLocks = lockInfo.getReadLocks();
 
-            if (curReadLocks.size() == 1 && curReadLocks.contains(txId) && !checkWriteLockInWaitingList(varName, txId)) {
+            if (curReadLocks.size() == 1 && curReadLocks.contains(txId) && !checkOtherWriteLockInWaitingList(varName, txId)) {
                 // TODO promote current lock
                 lockInfo.promoteFromReadLockToWriteLock(varName, txId);
                 Variable var = tempVars.get(varName);
@@ -149,7 +157,21 @@ public class DataManager {
         // TODO check replicated variable changed to isRead > X 아닌 듯?
     }
 
-    public boolean checkWriteLockInWaitingList(String varName, String txId) {
+    public boolean checkWriteLockInWaitingList(String varName) {
+        List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
+
+        if (lockWaitListForVar == null) return false;
+
+        for (Lock lock: lockWaitListForVar) {
+            if (lock.getLockType().equals(LockType.WRITE)) {
+                return true;
+            }
+        }
+        return false;
+
+    }
+
+    public boolean checkOtherWriteLockInWaitingList(String varName, String txId) {
         List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
 
         if (lockWaitListForVar == null) return false;
@@ -220,7 +242,7 @@ public class DataManager {
             } else {
                 if (lockForVar.getReadLocks().contains(txId)) {
                     // TODO implement
-                    if (!checkWriteLockInWaitingList(variableName, txId)) {
+                    if (!checkOtherWriteLockInWaitingList(variableName, txId)) {
                         return true;
                     } else {
                         addToLockWaitingList(variableName, txId, LockType.WRITE);
@@ -292,6 +314,7 @@ public class DataManager {
         clearTxId(txId);
 
         // TODO update lock table
+        updateCurLock();
     }
 
     public void clearTxId(String txId) {
@@ -305,7 +328,10 @@ public class DataManager {
 
             Lock currentLock = lockTable.getCurLock();
             if (currentLock.getLockType() == LockType.WRITE && currentLock.getTxId().equals(txId)) {
+                //System.out.println(id + "     " + txId + "before: " + lockTable.getCurLock());
                 lockTable.setCurLock(null);
+                //System.out.println(id + "     " + txId + "after: " + lockTable.getCurLock());
+
             } else if (currentLock.getLockType() == LockType.READ) {
                 lockTable.releaseReadLock(txId);
                 if (lockTable.getReadLocks() == null || lockTable.getReadLocks().size() == 0) {
@@ -315,6 +341,54 @@ public class DataManager {
         }
 
         // TODO update locktable
+        updateCurLock();
+    }
+
+    private void updateCurLock() {
+        for (String varName: curLock.keySet()) {
+            if (curLock.get(varName).getCurLock() == null || lockWaitingList.get(varName) == null || lockWaitingList.get(varName).size() == 0) continue;
+            Lock firstWaitingLock = lockWaitingList.get(varName).get(0);
+
+            if (firstWaitingLock.getLockType().equals(LockType.READ)) {
+                curLock.get(varName).setReadLock(firstWaitingLock.getTxId());
+            } else if (firstWaitingLock.getLockType().equals(LockType.WRITE)) {
+                curLock.get(varName).setCurLock(firstWaitingLock);
+            }
+
+            if (firstWaitingLock.getLockType().equals(LockType.READ) && lockWaitingList.get(varName).size() > 0) {
+                // TODO while loop
+                List<Lock> lockWaiting = lockWaitingList.get(varName);
+                List<Lock> toBeRemoved = new ArrayList<>();
+                Lock nextLock = lockWaiting.get(0);
+                for (int i = 0; i < lockWaiting.size(); i++) {
+                    nextLock = lockWaiting.get(i);
+                    if (nextLock.getLockType().equals(LockType.READ)) {
+                        // add to read lock
+                        curLock.get(varName).setReadLock(nextLock.getTxId());
+                        // remove nextLock
+                        toBeRemoved.add(nextLock);
+                    } else {
+                        break;
+                    }
+                }
+                lockWaiting.removeAll(toBeRemoved);
+
+                if (curLock.get(varName).getReadLocks().size() == 1 && curLock.get(varName).getReadLocks().contains(nextLock.getTxId())) {
+                    // promote
+                    curLock.get(varName).promoteFromReadLockToWriteLock(varName, nextLock.getTxId());
+                    // pop
+                    lockWaiting.remove(0);
+
+                }
+                lockWaitingList.put(varName, lockWaiting);
+
+            }
+
+
+
+        }
+
+
     }
 
     public void clearTxIdFromLockWaitingList(String txId) {
