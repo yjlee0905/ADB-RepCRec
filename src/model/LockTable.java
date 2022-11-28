@@ -1,5 +1,7 @@
 package model;
 
+import model.type.LockType;
+
 import java.util.HashSet;
 
 public class LockTable {
@@ -36,6 +38,11 @@ public class LockTable {
     public void releaseReadLock(String txId) {
         if (!readLocks.contains(txId)) return;
         readLocks.remove(txId);
+    }
+
+    public void promoteFromReadLockToWriteLock(String varName, String txId) {
+        readLocks.remove(txId);
+        curLock = new Lock(varName, txId, LockType.WRITE);
     }
 
 }

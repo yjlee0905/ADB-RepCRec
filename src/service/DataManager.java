@@ -134,22 +134,66 @@ public class DataManager {
         } else if (curLock.get(varName).getCurLock().getLockType().equals(LockType.WRITE) && curLock.get(varName).getCurLock().getTxId().equals(txId)) {
             Variable var = tempVars.get(varName);
             var.setTempValueWithTxId(txId, value);
-        } else {
-            System.out.println("promote read to write");
+        } else if (curLock.get(varName).getCurLock().getLockType().equals(LockType.READ)) {
+            LockTable lockInfo = curLock.get(varName);
+            HashSet<String> curReadLocks = lockInfo.getReadLocks();
+
+            if (curReadLocks.size() == 1 && curReadLocks.contains(txId) && !checkWriteLockInWaitingList(varName, txId)) {
+                // TODO promote current lock
+                lockInfo.promoteFromReadLockToWriteLock(varName, txId);
+                Variable var = tempVars.get(varName);
+                var.setTempValueWithTxId(txId, value);
+                System.out.println("promote from READ lock to WRITE lock");
+            }
         }
         // TODO check replicated variable changed to isRead > X 아닌 듯?
     }
 
-    public void updateWriteLockWaitingList(String varName, Integer value, Long timestamp, String txId) {
-        Lock targetLock = new Lock(txId, varName, LockType.WRITE);
-        if (lockWaitingList.containsKey(varName)) {
-            lockWaitingList.get(varName).add(targetLock);
-        } else {
-            List<Lock> locks = new ArrayList<>();
-            locks.add(targetLock);
-            lockWaitingList.put(varName, locks);
+    public boolean checkWriteLockInWaitingList(String varName, String txId) {
+        List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
+
+        if (lockWaitListForVar == null) return false;
+
+        for (Lock lock: lockWaitListForVar) {
+            if (lock.getLockType().equals(LockType.WRITE) && !lock.getTxId().equals(txId)) {
+                return true;
+            }
         }
+        return false;
     }
+
+    public void addToLockWaitingList(String varName, String txId, LockType lockType) {
+        List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
+
+        if (lockWaitListForVar == null) {
+            Lock newLock = new Lock(txId, varName, lockType);
+            List<Lock> newLockWaitList = new ArrayList<>();
+            newLockWaitList.add(newLock);
+            lockWaitingList.put(varName, newLockWaitList);
+            return;
+        }
+
+        for (Lock lock: lockWaitListForVar) {
+            if (lock.getTxId().equals(txId) && (lock.getLockType().equals(lockType)) || lock.getLockType().equals(LockType.READ)) {
+                return;
+            }
+        }
+
+        Lock newLock = new Lock(txId, varName, lockType);
+        lockWaitListForVar.add(newLock);
+        lockWaitingList.put(varName, lockWaitListForVar);
+    }
+
+//    public void updateWriteLockWaitingList(String varName, Integer value, Long timestamp, String txId) {
+//        Lock targetLock = new Lock(txId, varName, LockType.WRITE);
+//        if (lockWaitingList.containsKey(varName)) {
+//            lockWaitingList.get(varName).add(targetLock);
+//        } else {
+//            List<Lock> locks = new ArrayList<>();
+//            locks.add(targetLock);
+//            lockWaitingList.put(varName, locks);
+//        }
+//    }
 
     public boolean isExistVariable(String variableName) {
         return this.variables.containsKey(variableName);
@@ -164,6 +208,39 @@ public class DataManager {
 
     public boolean isWriteLockAvailable(String txId, String variableName) {
         if (!this.curLock.containsKey(variableName) || this.curLock.get(variableName).getCurLock() == null) return true;
+
+        LockTable lockForVar = curLock.get(variableName);
+        Lock currentLockForVar = lockForVar.getCurLock();
+
+        if (currentLockForVar.getLockType().equals(LockType.READ)) {
+            if (lockForVar.getReadLocks().size() > 1) {
+                // add to lock waiting list
+                addToLockWaitingList(variableName, txId, LockType.WRITE);
+                return false;
+            } else {
+                if (lockForVar.getReadLocks().contains(txId)) {
+                    // TODO implement
+                    if (!checkWriteLockInWaitingList(variableName, txId)) {
+                        return true;
+                    } else {
+                        addToLockWaitingList(variableName, txId, LockType.WRITE);
+                        return false;
+                    }
+                } else {
+                    // add to lock waiting list
+                    addToLockWaitingList(variableName, txId, LockType.WRITE);
+                    return false;
+                }
+            }
+        } else if (currentLockForVar.getLockType().equals(LockType.WRITE)) {
+            if (currentLockForVar.getTxId().equals(txId)) {
+                return true;
+            } else {
+                // add to lock waiting list
+                addToLockWaitingList(variableName, txId, LockType.WRITE);
+                return false;
+            }
+        }
         return false;
     }
 

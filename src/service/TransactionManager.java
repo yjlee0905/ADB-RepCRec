@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test8.txt");
+        Parser parser = new Parser("data/test20.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
