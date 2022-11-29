@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test21.txt");
+        Parser parser = new Parser("data/test20.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -46,10 +46,9 @@ public class TransactionManager {
             String operation = command.get(0);
             // TODO implement deadlock
             if (detector.isDeadLock(sites, transactions)) {
-                System.out.println("Deadlock detected. " + this.timer);
                 Transaction victim = transactions.get(detector.getVictimAbortionTxID(transactions));
                 victim.setIsAborted(true);
-                System.out.println("[Timestamp: " + this.timer + "] " + victim.getTxId() + " is aborted.");
+                System.out.println("[Timestamp: " + this.timer + "] Deadlock detected and Victim " + victim.getTxId() + " is aborted.");
                 processAbortedTx(detector.getVictimAbortionTxID(transactions));
                 processOperations();
             }
@@ -232,7 +231,7 @@ public class TransactionManager {
                 // read-only transaction
                 Integer result = processReadOnly(op.getTxId(), op.getVarName());
                 if (result == null) {
-                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " fails to read.");
+                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " fails to read and is aborted.");
                 } else {
                     System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
                     toBeRemoved.add(op);
@@ -310,11 +309,13 @@ public class TransactionManager {
 
         // write variables
         Transaction currentTx = transactions.get(txId);
+        String sites = "";
         for (DataManager target: targets) {
             target.write(variableName, value, this.timer, txId);
+            sites += target.getId() + ", ";
             currentTx.addVisitedSites(target.getId());
         }
-        System.out.println("[Timestamp: " + this.timer + "] " + txId + " writes variable: " + variableName + "=" + value);
+        System.out.println("[Timestamp: " + this.timer + "] " + txId + " writes variable: " + variableName + "=" + value + " to site: " + sites);
         return op;
     }
 }
