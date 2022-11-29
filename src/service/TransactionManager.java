@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test2.txt");
+        Parser parser = new Parser("data/test21.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -49,6 +49,7 @@ public class TransactionManager {
                 System.out.println("Deadlock detected. " + this.timer);
                 transactions.get(detector.getVictimAbortionTxID(transactions)).setIsAborted(true);
                 processAbortedTx(detector.getVictimAbortionTxID(transactions));
+                processOperations();
             }
 
             if (operation.equals("begin")) {

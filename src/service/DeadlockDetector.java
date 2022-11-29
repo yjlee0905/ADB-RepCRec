@@ -11,11 +11,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class DeadlockDetector {
-    Map<Transaction, List<Lock>> transactionLockMap = new HashMap<>();
+    //Map<Transaction, List<Lock>> transactionLockMap = new HashMap<>();
     List<String> victimSiteList = new ArrayList<>();
 
     public boolean isDeadLock(List<DataManager> sites, Map<String, Transaction> transactions) {
-        transactionLockMap.clear();
+        //transactionLockMap.clear();
         victimSiteList.clear();
 
         // get target sites
@@ -45,6 +45,8 @@ public class DeadlockDetector {
                     if(!combinedQ.containsKey(entry.getKey())) {
                         combinedQ.put(entry.getKey(), new ArrayList<>());
                     }
+
+                    if (entry.getValue().getCurLock() == null) continue;
 
                     if(combinedQ.get(entry.getKey()).contains(entry.getValue().getCurLock().getTxId())) {
                         continue;
@@ -79,15 +81,19 @@ public class DeadlockDetector {
         // a conflicting lock on x
         Map<String, List<String>> blockGraph = new HashMap<>();
 
-        for(Map.Entry<String, List<String>> entry: combinedQ.entrySet()) {
+        for(Map.Entry<String, List<String>> variable: combinedQ.entrySet()) {
 
-            List<String> waitList = entry.getValue();
+            List<String> waitList = variable.getValue();
 
             if(waitList.size() == 1) {
                 continue;
             }
 
             for(int i = 1; i < waitList.size(); ++i) {
+//                if (i == 0) {
+//                    blockGraph.put(waitList.get(0), new ArrayList<>());
+//                    continue;
+//                }
                 if(!blockGraph.containsKey(waitList.get(i))) {
                     blockGraph.put(waitList.get(i) , new ArrayList<>());
                 }
@@ -103,7 +109,14 @@ public class DeadlockDetector {
         // construct indegree map
         Map<String, Integer> computeIndegree = new HashMap<>();
 
+        for (String key: blockGraph.keySet()) {
+            computeIndegree.put(key, 0);
+        }
+
         blockGraph.forEach((k, v) -> {
+//            if (v.size() == 0) {
+//                computeIndegree.put(v.get(0), 0);
+//            }
             for(String s : v) {
                 if(!computeIndegree.containsKey(s)) {
                     computeIndegree.put(s, 0);
@@ -127,14 +140,27 @@ public class DeadlockDetector {
         while(!queueForBFS.isEmpty()) {
             String temp = queueForBFS.poll();
             nonCycles.add(temp);
-            blockGraph.forEach((k,v) -> {
-                computeIndegree.put(k, computeIndegree.get(k) - 1);
 
-                if(computeIndegree.get(k).intValue() == 0) {
-                    queueForBFS.add(k);
+            List<String> tmp  = blockGraph.get(temp);
+            if (tmp == null) continue;
+            for(String elem : blockGraph.get(temp)) {
+
+                computeIndegree.put(elem, computeIndegree.get(elem) -1);
+
+                if(computeIndegree.get(elem) == 0) {
+                    queueForBFS.add(elem);
                 }
-            });
-            ++numOfVisited;
+
+                ++numOfVisited;
+            }
+//            blockGraph.forEach((k,v) -> {
+//                computeIndegree.put(k, computeIndegree.get(k) - 1);
+//
+//                if(computeIndegree.get(k).intValue() == 0) {
+//                    queueForBFS.add(k);
+//                }
+//            });
+//            ++numOfVisited;
         }
 
         // there is a cycle
