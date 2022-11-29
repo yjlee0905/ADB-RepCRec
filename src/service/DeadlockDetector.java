@@ -20,8 +20,8 @@ public class DeadlockDetector {
 
         // get target sites
         List<DataManager> targetSite = sites.stream()
-            .filter(s -> s.isUp() && (!s.getCurLock().isEmpty()))
-            .collect(Collectors.toList());
+                .filter(s -> s.isUp() && (!s.getCurLock().isEmpty()))
+                .collect(Collectors.toList());
 
         if(targetSite.isEmpty()) {
 //            System.out.println("No valid sites are (holding/waiting for) any locks");
@@ -34,6 +34,7 @@ public class DeadlockDetector {
 //        just storing the String of the TxID does not give a null pointer when printed
         // Map of <variable name(x1, x2...), List<String>>
         // example <x1:[T1, T2], x2:[T2, T1]>
+        Map<String, List<Lock>> combinedQLock = new HashMap<>();
         Map<String, List<String>> combinedQ = new HashMap<>();
 
         // add all the acquired locks
@@ -43,6 +44,7 @@ public class DeadlockDetector {
             if(!dataManager.getCurLock().isEmpty()) {
                 for (Map.Entry<String, LockTable> entry : dataManager.getCurLock().entrySet()) {
                     if(!combinedQ.containsKey(entry.getKey())) {
+                        combinedQLock.put(entry.getKey(), new ArrayList<>());
                         combinedQ.put(entry.getKey(), new ArrayList<>());
                     }
 
@@ -51,6 +53,8 @@ public class DeadlockDetector {
                     if(combinedQ.get(entry.getKey()).contains(entry.getValue().getCurLock().getTxId())) {
                         continue;
                     }
+
+                    combinedQLock.get(entry.getKey()).add(entry.getValue().getCurLock());
                     combinedQ.get(entry.getKey()).add(entry.getValue().getCurLock().getTxId());
                 }
             }
@@ -66,8 +70,11 @@ public class DeadlockDetector {
                 for (Map.Entry<String, List<Lock>> entry : lockQueue.entrySet()) {
                     for(Lock singleLock : entry.getValue()) {
                         if(combinedQ.get(entry.getKey()).contains(singleLock.getTxId())) {
-                            continue;
+                            if(combinedQLock.get(entry.getKey()).contains(singleLock.getTxId())) {
+                                continue;
+                            }
                         }
+                        combinedQLock.get(entry.getKey()).add(singleLock);
                         combinedQ.get(entry.getKey()).add(singleLock.getTxId());
                     }
                 }

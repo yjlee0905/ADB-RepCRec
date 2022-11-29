@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test20.txt");
+        Parser parser = new Parser("ADB-RepCRec/data/test21.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
