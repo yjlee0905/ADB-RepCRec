@@ -75,14 +75,14 @@ public class DataManager {
 //        return variables.get(varName).getValue();
 //    }
 
-    public Integer read(String varName, String txId) {
+    public Integer read(String varName, String txId, Long timestamp) {
         Variable variable = variables.get(varName);
         if (!variable.canRead()) {
             return null;
         }
 
         if (!curLock.containsKey(varName) || curLock.get(varName).getCurLock() == null) {
-            Lock readLock = new Lock(txId, varName, LockType.READ);
+            Lock readLock = new Lock(txId, varName, LockType.READ, timestamp);
             HashSet<String> readLocks = new HashSet<>();
             readLocks.add(txId);
             LockTable lockTable = new LockTable(readLock, readLocks);
@@ -98,7 +98,7 @@ public class DataManager {
                 // TODO need write lock check
             } else {
                 if (checkWriteLockInWaitingList(varName)) {
-                    addToLockWaitingList(varName, txId, LockType.READ);
+                    addToLockWaitingList(varName, txId, LockType.READ, timestamp);
                     return null;
                 } else {
                     LockTable curLockTable = curLock.get(varName);
@@ -116,7 +116,7 @@ public class DataManager {
                 return variables.get(varName).versionedVal.get(txId);
             } else {
                 // TODO add lock queue
-                addToLockWaitingList(varName, txId, LockType.READ);
+                addToLockWaitingList(varName, txId, LockType.READ, timestamp);
                 return null;
             }
         }
@@ -134,7 +134,7 @@ public class DataManager {
 
     public void write(String varName, Integer value, Long timestamp, String txId) {
         if (!curLock.containsKey(varName) || curLock.get(varName) == null || curLock.get(varName).getCurLock() == null) {
-            Lock lock = new Lock(txId, varName, LockType.WRITE);
+            Lock lock = new Lock(txId, varName, LockType.WRITE, timestamp);
             LockTable lockTable = new LockTable(lock);
             curLock.put(varName, lockTable);
 
@@ -149,7 +149,7 @@ public class DataManager {
 
             if (curReadLocks.size() == 1 && curReadLocks.contains(txId) && !checkOtherWriteLockInWaitingList(varName, txId)) {
                 // TODO promote current lock
-                lockInfo.promoteFromReadLockToWriteLock(varName, txId);
+                lockInfo.promoteFromReadLockToWriteLock(varName, txId, timestamp);
                 Variable var = tempVars.get(varName);
                 var.setTempValueWithTxId(txId, value);
                 System.out.println("promote from READ lock to WRITE lock");
@@ -185,11 +185,11 @@ public class DataManager {
         return false;
     }
 
-    public void addToLockWaitingList(String varName, String txId, LockType lockType) {
+    public void addToLockWaitingList(String varName, String txId, LockType lockType, Long timestamp) {
         List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
 
         if (lockWaitListForVar == null) {
-            Lock newLock = new Lock(txId, varName, lockType);
+            Lock newLock = new Lock(txId, varName, lockType, timestamp);
             List<Lock> newLockWaitList = new ArrayList<>();
             newLockWaitList.add(newLock);
             lockWaitingList.put(varName, newLockWaitList);
@@ -202,7 +202,7 @@ public class DataManager {
             }
         }
 
-        Lock newLock = new Lock(txId, varName, lockType);
+        Lock newLock = new Lock(txId, varName, lockType, timestamp);
         lockWaitListForVar.add(newLock);
         lockWaitingList.put(varName, lockWaitListForVar);
     }
@@ -229,7 +229,7 @@ public class DataManager {
         return this.isUp;
     }
 
-    public boolean isWriteLockAvailable(String txId, String variableName) {
+    public boolean isWriteLockAvailable(String txId, String variableName, Long timestamp) {
         if (!this.curLock.containsKey(variableName) || this.curLock.get(variableName).getCurLock() == null) return true;
 
         LockTable lockForVar = curLock.get(variableName);
@@ -238,7 +238,7 @@ public class DataManager {
         if (currentLockForVar.getLockType().equals(LockType.READ)) {
             if (lockForVar.getReadLocks().size() > 1) {
                 // add to lock waiting list
-                addToLockWaitingList(variableName, txId, LockType.WRITE);
+                addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
                 return false;
             } else {
                 if (lockForVar.getReadLocks().contains(txId)) {
@@ -246,12 +246,12 @@ public class DataManager {
                     if (!checkOtherWriteLockInWaitingList(variableName, txId)) {
                         return true;
                     } else {
-                        addToLockWaitingList(variableName, txId, LockType.WRITE);
+                        addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
                         return false;
                     }
                 } else {
                     // add to lock waiting list
-                    addToLockWaitingList(variableName, txId, LockType.WRITE);
+                    addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
                     return false;
                 }
             }
@@ -260,7 +260,7 @@ public class DataManager {
                 return true;
             } else {
                 // add to lock waiting list
-                addToLockWaitingList(variableName, txId, LockType.WRITE);
+                addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
                 return false;
             }
         }
@@ -312,13 +312,13 @@ public class DataManager {
             versionedVal.keySet().removeIf(key -> key.equals(txId));
         }
 
-        clearTxId(txId);
+        clearTxId(txId, timestamp);
 
         // TODO update lock table
-        updateCurLock();
+        updateCurLock(timestamp);
     }
 
-    public void clearTxId(String txId) {
+    public void clearTxId(String txId, Long timestamp) {
         // remove current lock for txId
         //curLock.entrySet().removeIf(entry -> entry.getValue().getCurLock().getTxId().equals(txId));
 
@@ -342,10 +342,10 @@ public class DataManager {
         }
 
         // TODO update locktable
-        updateCurLock();
+        updateCurLock(timestamp);
     }
 
-    private void updateCurLock() {
+    private void updateCurLock(Long timestamp) {
         for (String varName: curLock.keySet()) {
             if (curLock.get(varName).getCurLock() != null || lockWaitingList.get(varName) == null || lockWaitingList.get(varName).size() == 0) continue;
             Lock firstWaitingLock = lockWaitingList.get(varName).get(0);
@@ -378,7 +378,7 @@ public class DataManager {
 
                 if (curLock.get(varName).getReadLocks().size() == 1 && curLock.get(varName).getReadLocks().contains(nextLock.getTxId())) {
                     // promote
-                    curLock.get(varName).promoteFromReadLockToWriteLock(varName, nextLock.getTxId());
+                    curLock.get(varName).promoteFromReadLockToWriteLock(varName, nextLock.getTxId(), timestamp);
                     // pop
                     lockWaiting.remove(0);
                 }

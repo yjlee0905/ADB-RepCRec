@@ -38,7 +38,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test20.txt");
+        Parser parser = new Parser("data/test21.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -191,7 +191,7 @@ public class TransactionManager {
      * */
     private void processAbortedTx(String txId) {
         for (DataManager site: sites) {
-            site.clearTxId(txId);
+            site.clearTxId(txId, timer);
             site.clearTxIdFromLockWaitingList(txId);
         }
         transactions.remove(txId);
@@ -264,7 +264,7 @@ public class TransactionManager {
         Transaction currentTx = transactions.get(txId);
         Integer readResult = null;
         for (DataManager target: targets) {
-            Integer resultFromSite = target.read(variableName, txId);
+            Integer resultFromSite = target.read(variableName, txId, timer);
             // currentTx.addVisitedSites(target.getId()); // TODO read는 언제를 site visit으로 보는지
 //            if (readResult != null) return readResult; // TODO read는 replicated의 경우 하나만 유효하면 바로 읽으면 되는지 그렇다면 visited는 어떻게 판별?
             if (resultFromSite != null) {
@@ -300,7 +300,7 @@ public class TransactionManager {
 
         // if there is a one site that cannot get write lock, wait
         for (DataManager target: targets) {
-            if (!target.isWriteLockAvailable(txId, variableName)) {
+            if (!target.isWriteLockAvailable(txId, variableName, timer)) {
                 System.out.println("[Timestamp: " + this.timer + "] " + txId + " waits because of the write lock conflict in site: " + target.getId());
                 //target.updateWriteLockWaitingList(variableName, value,this.timer, txId);
                 return null;

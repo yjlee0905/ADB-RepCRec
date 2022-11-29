@@ -3,16 +3,24 @@ package service;
 import model.Lock;
 import model.LockTable;
 import model.Transaction;
-import model.Variable;
 
-import javax.xml.crypto.Data;
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class DeadlockDetector {
     //Map<Transaction, List<Lock>> transactionLockMap = new HashMap<>();
     List<String> victimSiteList = new ArrayList<>();
+
+    private boolean isLockIncluded(List<Lock> combinedLockQforVar, Lock target) {
+        if (combinedLockQforVar == null || combinedLockQforVar.size() == 0) return false;
+
+        for (Lock curLock: combinedLockQforVar) {
+            if (curLock.getTimestamp().equals(target.getTimestamp())) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public boolean isDeadLock(List<DataManager> sites, Map<String, Transaction> transactions) {
         //transactionLockMap.clear();
@@ -34,6 +42,7 @@ public class DeadlockDetector {
 //        just storing the String of the TxID does not give a null pointer when printed
         // Map of <variable name(x1, x2...), List<String>>
         // example <x1:[T1, T2], x2:[T2, T1]>
+        Map<String, List<Lock>> combinedLockQ = new HashMap<>();
         Map<String, List<String>> combinedQ = new HashMap<>();
 
         // add all the acquired locks
@@ -44,14 +53,19 @@ public class DeadlockDetector {
                 for (Map.Entry<String, LockTable> entry : dataManager.getCurLock().entrySet()) {
                     if(!combinedQ.containsKey(entry.getKey())) {
                         combinedQ.put(entry.getKey(), new ArrayList<>());
+                        combinedLockQ.put(entry.getKey(), new ArrayList<>());
                     }
 
                     if (entry.getValue().getCurLock() == null) continue;
 
-                    if(combinedQ.get(entry.getKey()).contains(entry.getValue().getCurLock().getTxId())) {
+                    if (isLockIncluded(combinedLockQ.get(entry.getKey()), entry.getValue().getCurLock())) {
                         continue;
                     }
+//                    if(combinedLockQ.get(entry.getKey()).contains(entry.getValue().getCurLock().getTimestamp())) {
+//                        continue;
+//                    }
                     combinedQ.get(entry.getKey()).add(entry.getValue().getCurLock().getTxId());
+                    combinedLockQ.get(entry.getKey()).add(entry.getValue().getCurLock());
                 }
             }
         });
@@ -65,10 +79,14 @@ public class DeadlockDetector {
             if(!lockQueue.isEmpty()) {
                 for (Map.Entry<String, List<Lock>> entry : lockQueue.entrySet()) {
                     for(Lock singleLock : entry.getValue()) {
-                        if(combinedQ.get(entry.getKey()).contains(singleLock.getTxId())) {
+                        if (isLockIncluded(combinedLockQ.get(entry.getKey()), singleLock)) {
                             continue;
                         }
+//                        if(combinedQ.get(entry.getKey()).contains(singleLock.getTxId())) {
+//                            continue;
+//                        }
                         combinedQ.get(entry.getKey()).add(singleLock.getTxId());
+                        combinedLockQ.get(entry.getKey()).add(singleLock);
                     }
                 }
             }
