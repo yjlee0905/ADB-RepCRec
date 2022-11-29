@@ -79,7 +79,18 @@ public class DeadlockDetector {
         // if T1 needs a lock on item x, T2 has a conflicting lock on x
         // or T2 is ahead of T1 on the wait queue for x and T2 seeks
         // a conflicting lock on x
+        HashSet<String> allTransactions = new HashSet<>();
+        for (String varName: combinedQ.keySet()) {
+            List<String> waitList = combinedQ.get(varName);
+            for (String txId: waitList) {
+                allTransactions.add(txId);
+            }
+        }
+
         Map<String, List<String>> blockGraph = new HashMap<>();
+        for (String txId: allTransactions) {
+            blockGraph.put(txId, new ArrayList<>());
+        }
 
         for(Map.Entry<String, List<String>> variable: combinedQ.entrySet()) {
 
@@ -94,9 +105,9 @@ public class DeadlockDetector {
 //                    blockGraph.put(waitList.get(0), new ArrayList<>());
 //                    continue;
 //                }
-                if(!blockGraph.containsKey(waitList.get(i))) {
-                    blockGraph.put(waitList.get(i) , new ArrayList<>());
-                }
+//                if(!blockGraph.containsKey(waitList.get(i))) {
+//                    blockGraph.put(waitList.get(i) , new ArrayList<>());
+//                }
                 blockGraph.get(waitList.get(i)).add(waitList.get(i-1));
             }
         }

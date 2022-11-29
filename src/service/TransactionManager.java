@@ -47,7 +47,9 @@ public class TransactionManager {
             // TODO implement deadlock
             if (detector.isDeadLock(sites, transactions)) {
                 System.out.println("Deadlock detected. " + this.timer);
-                transactions.get(detector.getVictimAbortionTxID(transactions)).setIsAborted(true);
+                Transaction victim = transactions.get(detector.getVictimAbortionTxID(transactions));
+                victim.setIsAborted(true);
+                System.out.println("[Timestamp: " + this.timer + "] " + victim.getTxId() + " is aborted.");
                 processAbortedTx(detector.getVictimAbortionTxID(transactions));
                 processOperations();
             }
