@@ -31,7 +31,7 @@ public class Transaction {
 
     public HashSet getVisitedSites() {return this.sitesVisited;}
 
-    public void addVisitedSites(Integer siteId) {
+    public void addSitesVisited(Integer siteId) {
         this.sitesVisited.add(siteId);
     }
 }

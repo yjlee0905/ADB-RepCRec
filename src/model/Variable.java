@@ -55,7 +55,4 @@ public class Variable {
         // TODO check need time or not
     }
 
-    public Integer getFinalTempValueWithTxId(String txId) {
-        return versionedVal.get(txId);
-    }
 }

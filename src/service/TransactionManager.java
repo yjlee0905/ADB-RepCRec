@@ -1,7 +1,6 @@
 package service;
 import model.History;
 import model.Operation;
-import model.Variable;
 import model.type.OperationType;
 import model.Transaction;
 
@@ -19,7 +18,6 @@ public class TransactionManager {
 
     private Set<String> readOnlyTx = new HashSet<>();
 
-    // TODO operation queue, T1, T2, T1 은 어떻게 처리??
     private List<Operation> opQueue = new ArrayList<>();
 
     private Map<Integer, List<History>> failHistories = new HashMap<>(); // key: site, value: fail timestamp
@@ -44,7 +42,6 @@ public class TransactionManager {
 
         for (List<String> command: commands) {
             String operation = command.get(0);
-            // TODO implement deadlock
             if (detector.isDeadLock(sites, transactions)) {
                 Transaction victim = transactions.get(detector.getVictimAbortionTxID(transactions));
                 victim.setIsAborted(true);
@@ -172,7 +169,7 @@ public class TransactionManager {
         DataManager site = this.sites.get(siteId-1);
         site.setIsUp(true);
         site.setVariablesIsRead(false);
-        // 이후에 write가 한번 발생하면 그 때는 read가 가능해진다. from test3.5 comment
+        // from test 3.5 comment, this values can be readable after write operation occurs.
     }
 
     private void dump() {
@@ -204,13 +201,9 @@ public class TransactionManager {
             }
         }
         opQueue.removeAll(toBeRemoved);
-
-       // opQueue.removeIf(singleOperation -> singleOperation.getTxId().equals(txId));
-        // temp 초기화?
     }
 
     private void processCommitTx(String txId) {
-        // TODO split into temp and commit value?
         for (DataManager site: sites) {
             site.processCommit(txId, timer);
         }
@@ -232,12 +225,12 @@ public class TransactionManager {
                 Integer result = processReadOnly(op.getTxId(), op.getVarName());
                 if (result == null) {
                     System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " fails to read and is aborted.");
+                    // TODO abort?
                 } else {
                     System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
                     toBeRemoved.add(op);
                 }
             } else if (op.getOperationType().equals(OperationType.READ)) {
-                //TODO read transaction
                 Integer result = processRead(op.getTxId(), op.getVarName());
                 if (result == null) {
                     System.out.println("[Timestamp: " + this.timer + "] Read fails");
@@ -268,7 +261,7 @@ public class TransactionManager {
             // currentTx.addVisitedSites(target.getId()); // TODO read는 언제를 site visit으로 보는지
 //            if (readResult != null) return readResult; // TODO read는 replicated의 경우 하나만 유효하면 바로 읽으면 되는지 그렇다면 visited는 어떻게 판별?
             if (resultFromSite != null) {
-                currentTx.addVisitedSites(target.getId());
+                currentTx.addSitesVisited(target.getId());
                 readResult = resultFromSite;
             }
         }
@@ -313,7 +306,7 @@ public class TransactionManager {
         for (DataManager target: targets) {
             target.write(variableName, value, this.timer, txId);
             sites += target.getId() + ", ";
-            currentTx.addVisitedSites(target.getId());
+            currentTx.addSitesVisited(target.getId());
         }
         System.out.println("[Timestamp: " + this.timer + "] " + txId + " writes variable: " + variableName + "=" + value + " to site: " + sites);
         return op;

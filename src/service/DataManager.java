@@ -7,7 +7,6 @@ import model.Variable;
 import model.type.LockType;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class DataManager {
 
@@ -71,10 +70,6 @@ public class DataManager {
     public Map<String, List<Lock>> getLockWaitingList() {return this.lockWaitingList;}
 
 
-//    public Integer read(String varName) {
-//        return variables.get(varName).getValue();
-//    }
-
     public Integer read(String varName, String txId, Long timestamp) {
         Variable variable = variables.get(varName);
         if (!variable.canRead()) {
@@ -94,7 +89,6 @@ public class DataManager {
         if (curLockForVar.getLockType().equals(LockType.READ)) {
             if (curLock.get(varName).isTxHoldReadLock(txId)) {
                 return variable.getValue();
-
                 // TODO need write lock check
             } else {
                 if (checkWriteLockInWaitingList(varName)) {
@@ -115,7 +109,6 @@ public class DataManager {
                 // read temp value
                 return variables.get(varName).versionedVal.get(txId);
             } else {
-                // TODO add lock queue
                 addToLockWaitingList(varName, txId, LockType.READ, timestamp);
                 return null;
             }
@@ -148,7 +141,6 @@ public class DataManager {
             HashSet<String> curReadLocks = lockInfo.getReadLocks();
 
             if (curReadLocks.size() == 1 && curReadLocks.contains(txId) && !checkOtherWriteLockInWaitingList(varName, txId)) {
-                // TODO promote current lock
                 lockInfo.promoteFromReadLockToWriteLock(varName, txId, timestamp);
                 Variable var = tempVars.get(varName);
                 var.setTempValueWithTxId(txId, value);
@@ -207,17 +199,6 @@ public class DataManager {
         lockWaitingList.put(varName, lockWaitListForVar);
     }
 
-//    public void updateWriteLockWaitingList(String varName, Integer value, Long timestamp, String txId) {
-//        Lock targetLock = new Lock(txId, varName, LockType.WRITE);
-//        if (lockWaitingList.containsKey(varName)) {
-//            lockWaitingList.get(varName).add(targetLock);
-//        } else {
-//            List<Lock> locks = new ArrayList<>();
-//            locks.add(targetLock);
-//            lockWaitingList.put(varName, locks);
-//        }
-//    }
-
     public boolean isExistVariable(String variableName) {
         return this.variables.containsKey(variableName);
     }
@@ -242,7 +223,6 @@ public class DataManager {
                 return false;
             } else {
                 if (lockForVar.getReadLocks().contains(txId)) {
-                    // TODO implement
                     if (!checkOtherWriteLockInWaitingList(variableName, txId)) {
                         return true;
                     } else {
@@ -259,7 +239,6 @@ public class DataManager {
             if (currentLockForVar.getTxId().equals(txId)) {
                 return true;
             } else {
-                // add to lock waiting list
                 addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
                 return false;
             }
@@ -287,7 +266,6 @@ public class DataManager {
 
     public void processCommit(String txId, Long timestamp) {
         for (String varName: tempVars.keySet()) {
-            // 여기서 versionedVal 봐야함
             Variable variable = tempVars.get(varName);
             Map<String, Integer> versionedVal = variable.versionedVal;
 
@@ -315,7 +293,7 @@ public class DataManager {
         clearTxId(txId, timestamp);
 
         // TODO update lock table
-        updateCurLock(timestamp);
+        //updateCurLock(timestamp);
     }
 
     public void clearTxId(String txId, Long timestamp) {
@@ -359,7 +337,6 @@ public class DataManager {
             }
 
             if (firstWaitingLock.getLockType().equals(LockType.READ) && lockWaitingList.get(varName).size() > 0) {
-                // TODO while loop
                 List<Lock> lockWaiting = lockWaitingList.get(varName);
                 List<Lock> toBeRemoved = new ArrayList<>();
                 Lock nextLock = lockWaiting.get(0);
@@ -379,7 +356,6 @@ public class DataManager {
                 if (curLock.get(varName).getReadLocks().size() == 1 && curLock.get(varName).getReadLocks().contains(nextLock.getTxId())) {
                     // promote
                     curLock.get(varName).promoteFromReadLockToWriteLock(varName, nextLock.getTxId(), timestamp);
-                    // pop
                     lockWaiting.remove(0);
                 }
                 lockWaitingList.put(varName, lockWaiting);
@@ -430,31 +406,10 @@ public class DataManager {
                 }
                 return lastCommit.getSnapshotValue();
 
-//                for (History failHis: failHistory) {
-//                    if (lastCommit.getTimestamp() <= failHis.getTimestamp() && failHis.getTimestamp() <= readOnlyStartTime) {
-//                        return null;
-//                    }
-//                }
             }
         }
         return null;
 
-//            for (History history: variableHistory) { // TODO check whether last or all, last부터 check?
-//                if (!variable.isReplicated()) {
-//                    if (history.getTimestamp() <= readOnlyStartTime) {
-//                        return history.getSnapshotValue();
-//                    }
-//                    return null;
-//                } else { // replicated TODO implement
-//                    if (failHistory == null || failHistory.size() == 0)
-//                        return snapshot.getValue();
-//                    for (History failHis: failHistory) {
-//                        if (failHis.getTimestamp() <= readOnlyStartTime)
-//                            return null;
-//                    }
-//                    return snapshot.getValue();
-//                }
-//            }
     }
 
     public void setVariablesIsRead(boolean isRead) {

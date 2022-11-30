@@ -8,7 +8,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class DeadlockDetector {
-    //Map<Transaction, List<Lock>> transactionLockMap = new HashMap<>();
     List<String> victimSiteList = new ArrayList<>();
 
     private boolean isLockIncluded(List<Lock> combinedLockQforVar, Lock target) {
@@ -23,7 +22,6 @@ public class DeadlockDetector {
     }
 
     public boolean isDeadLock(List<DataManager> sites, Map<String, Transaction> transactions) {
-        //transactionLockMap.clear();
         victimSiteList.clear();
 
         // get target sites
