@@ -7,7 +7,7 @@ import java.util.List;
 public class Test {
 
     public static void main(String[] args) {
-        TransactionManager txManager = new TransactionManager();
+        TransactionManager txManager = new TransactionManager(args[0]);
         txManager.runSimulation();
 
 //        Parser parser = new Parser("data/test20.txt");

@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 public class TransactionManager {
 
+    private String inputFile = "";
+
     private Long timer = Long.valueOf(0);
 
     private List<DataManager> sites = new ArrayList<>();
@@ -26,6 +28,10 @@ public class TransactionManager {
 
     private DeadlockDetector detector = new DeadlockDetector();
 
+    public TransactionManager(String arg) {
+        inputFile = arg;
+    }
+
     private void init() {
         for (int i = 1; i < 11; i++) {
             DataManager newSite = new DataManager(i, timer);
@@ -38,7 +44,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test21.txt");
+        Parser parser = new Parser(inputFile);
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
