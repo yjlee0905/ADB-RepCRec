@@ -42,7 +42,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test1.txt");
+        Parser parser = new Parser("data/test21.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -286,20 +286,22 @@ public class TransactionManager {
             }
             else if (op.getOperationType().equals(OperationType.READ) && readOnlyTx.contains(op.getTxId())) {
                 // read-only transaction
+                System.out.print("[Timestamp: " + this.timer + "] ");
                 Integer result = processReadOnly(op.getTxId(), op.getVarName());
                 if (result == null) {
-                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " fails to read and is aborted.");
+                    System.out.println("Read-only Transaction " + op.getTxId() + " fails to read and is aborted.");
                     // TODO abort?
                 } else {
-                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
+                    System.out.println("Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
                     toBeRemoved.add(op);
                 }
             } else if (op.getOperationType().equals(OperationType.READ)) {
+                System.out.print("[Timestamp: " + this.timer + "] ");
                 Integer result = processRead(op.getTxId(), op.getVarName());
                 if (result == null) {
-                    System.out.println("[Timestamp: " + this.timer + "] Read fails");
+                    System.out.println("Read fails");
                 } else {
-                    System.out.println("[Timestamp: " + this.timer + "] Read Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
+                    System.out.println("Read Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
                     toBeRemoved.add(op);
                 }
             }
@@ -327,6 +329,7 @@ public class TransactionManager {
 
         Transaction currentTx = transactions.get(txId);
         Integer readResult = null;
+        Integer siteId = null;
         for (DataManager target: targets) {
             Integer resultFromSite = target.read(variableName, txId, timer);
             // currentTx.addVisitedSites(target.getId()); // TODO read는 언제를 site visit으로 보는지
@@ -334,7 +337,11 @@ public class TransactionManager {
             if (resultFromSite != null) {
                 currentTx.addSitesVisited(target.getId());
                 readResult = resultFromSite;
+                if (siteId == null) siteId = target.getId();
             }
+        }
+        if (siteId != null) {
+            System.out.print("From site: " + siteId + ", ");
         }
         return readResult;
     }
@@ -354,7 +361,10 @@ public class TransactionManager {
         for (DataManager site: sites) {
             if (!site.isUp() || !site.isExistVariable(variableName)) continue;
             snapshot = site.getSnapshot(variableName, readOnlyStartTime, failHistories.get(site.getId()));
-            if (snapshot != null) return snapshot;
+            if (snapshot != null) {
+                System.out.print("From site: " + site.getId() + ", ");
+                return snapshot;
+            }
         }
         return snapshot;
     }
