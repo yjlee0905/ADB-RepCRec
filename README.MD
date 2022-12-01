@@ -20,6 +20,7 @@ If you have previously installed Java 19 before, you could switch versions by th
 ```
 update-alternatives --config java
 ```
+![screenshot1](https://user-images.githubusercontent.com/15973953/204946271-9d2ed1c3-1ff5-496b-b6ae-fd4acddce6ec.png)
 
 Then confirm the version by
 
@@ -73,7 +74,7 @@ executing the command where Test.class is located.)
 jar cvfe adb-repcrec.jar Test @classes.list
 ```
 
-Now you have a ``` adb_repcrec.jar``` file.
+Now you have a ``` adb-repcrec.jar``` file.
 
 
 ### Execution
@@ -97,4 +98,54 @@ extension to work.
 ./run_test.sh
 ```
 
+### Running Reprozip
 
+We will package by using ```reprozip``` in a directory called ADB-RepCRec that has the following structure and files for submission. There are many more test cases, but abbreviated.
+
+```
+~/ADB-RepCRec$ tree
+.
+├── adb-repcrec.jar
+├── data
+│   ├── test1.txt
+│   ├── test10.txt
+│   ├── test11.txt
+│   ├── test12.txt
+│   ├── test13.txt
+│   ├── test14.txt
+│   ├── ...
+└── run_test.sh
+```
+
+Run an experiment and make reprozip to trace that experiement.
+
+```
+reprozip trace ./run_time.sh
+```
+
+Then,
+```
+reprozip pack adb
+```
+
+Above command will create an adb.rpz, and this will allow the ./run_time.sh command to be reproduced as long as a system has reprounzip.
+
+After transfering this file to a system with reprounzip, you can run the following commands. You might need to ```./reprounzip``` depending if your system has reprounzip installed or in a binary format. The following assumes that you are running this on CIMS.
+
+```
+./reprounzip showfiles adb.rpz
+
+./reprounzip info adb.rpz
+```
+
+To unzip and run the experiment traced by reprozip, firstly unzip the .rpz file by and create a directory called unzipped_adb and place it inside that by
+
+```
+ ./reprounzip directory setup adb.rpz ~/unzipped_adb 
+```
+
+and then to reproduce the experiment traced by reprozip, run
+
+```
+ ./reprounzip directory run ~/unzipped_adb 
+```
