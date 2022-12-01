@@ -24,7 +24,7 @@ public class DataManager {
 
     private Map<String, List<History>> commitHistories = new HashMap<>(); // key: variable
 
-    // initialize site
+    // initialize site in constructor
     public DataManager(Integer id, Long time) {
         this.id = id;
         this.isUp = true;
@@ -229,8 +229,10 @@ public class DataManager {
         return this.variables.containsKey(variableName);
     }
 
+    // getter
     public boolean isUp() {return this.isUp;}
 
+    // setter
     public boolean setIsUp(boolean isUp) {
         this.isUp = isUp;
         return this.isUp;
@@ -475,6 +477,11 @@ public class DataManager {
 
     }
 
+    /**
+     * set isRead for all the variables
+     * @param isRead boolean
+     * @return no return
+     * */
     public void setVariablesIsRead(boolean isRead) {
         for (String varName: variables.keySet()) {
             Variable variable = variables.get(varName);
