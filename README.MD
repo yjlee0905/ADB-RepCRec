@@ -104,10 +104,12 @@ We will package by using ```reprozip``` in a directory called ADB-RepCRec that h
 
 Run an experiment and make reprozip to trace that experiement.
 
+### Trace an experiement using Reprozip
 ```
 reprozip trace ./run_time.sh
 ```
 
+### Packing using Reprozip
 Then,
 ```
 reprozip pack adb
@@ -115,30 +117,33 @@ reprozip pack adb
 
 Above command will create an adb.rpz, and this will allow the ./run_time.sh command to be reproduced as long as a system has reprounzip.
 
-After transfering this file to a system with reprounzip, you can run the following commands. You might need to ```./reprounzip``` depending if your system has reprounzip installed or in a binary format. The following assumes that you are running this on CIMS.
+After transfering this file to a system with reprounzip, you can run the following commands. You might need to ```./reprounzip``` depending on if the system has reprounzip installed or in a binary format. The following assumes that you are running this on CIMS.
 
+### Checking the contents
 ```
 ./reprounzip showfiles adb.rpz
 
 ./reprounzip info adb.rpz
 ```
 
-To unzip and run the experiment traced by reprozip, firstly unzip the .rpz file by and create a directory called unzipped_adb and place it inside that by
 
+### Unzip the .rpz file and replicate the experiment
+
+To unzip and run the experiment traced by reprozip, firstly unzip the .rpz file by and create a directory called unzipped_adb and place it inside that by
 ```
  ./reprounzip directory setup adb.rpz ~/unzipped_adb 
 ```
 
 and then to reproduce the experiment traced by reprozip, run
-
 ```
  ./reprounzip directory run ~/unzipped_adb 
 ```
 
-There were couple of problems encountered while using reprounzip that are resolved, but should be documented in case such problem happend again.
+### Misc.
 
-The run_test.sh file originally had a shebang ```#!/bin/sh```, and this made the system to run its native Java installed, rather than taking the binary Java file that is produced by reprounzip. Removing it alleviated the problem, but if similar problems occur, one should check if there were any files that enforced such an environment.
+There was a problem while using reprounzip which is resolved, but should be documented in case such problem happend again.
 
+The run_test.sh file originally had a shebang ```#!/bin/sh```, and this made the system to run its native Java installed, rather than taking the binary Java file that is produced by reprounzip. Removing it alleviated the problem, but if similar problems occur, one should check if there were any files that enforced an environment.
 
 
 
