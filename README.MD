@@ -73,7 +73,7 @@ executing the command where Test.class is located.)
 jar cvfe adb-repcrec.jar Test @classes.list
 ```
 
-Now you have a ``` adb-repcrec.jar``` file.
+Now you have a ``` adb_repcrec.jar``` file.
 
 
 ### Execution
