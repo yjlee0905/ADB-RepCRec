@@ -78,6 +78,7 @@ public class DataManager {
     public Integer read(String varName, String txId, Long timestamp) {
         Variable variable = variables.get(varName);
         if (!variable.canRead()) {
+            System.out.println("Site: " + id + " was down and is just recovered, so the value cannot be read at this time.");
             return null;
         }
 
@@ -98,6 +99,7 @@ public class DataManager {
             } else {
                 if (checkWriteLockInWaitingList(varName)) {
                     addToLockWaitingList(varName, txId, LockType.READ, timestamp);
+                    System.out.println("Read lock conflict at site: " + id);
                     return null;
                 } else {
                     LockTable curLockTable = curLock.get(varName);
@@ -115,6 +117,7 @@ public class DataManager {
                 return variables.get(varName).versionedVal.get(txId);
             } else {
                 addToLockWaitingList(varName, txId, LockType.READ, timestamp);
+                System.out.println("Read lock conflict at site: " + id);
                 return null;
             }
         }

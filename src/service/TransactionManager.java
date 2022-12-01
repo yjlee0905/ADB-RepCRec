@@ -42,7 +42,7 @@ public class TransactionManager {
     }
 
     public void runSimulation() {
-        Parser parser = new Parser("data/test21.txt");
+        Parser parser = new Parser("data/test20.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -299,7 +299,7 @@ public class TransactionManager {
                 System.out.print("[Timestamp: " + this.timer + "] ");
                 Integer result = processRead(op.getTxId(), op.getVarName());
                 if (result == null) {
-                    System.out.println("Read fails");
+                    System.out.println("Read Transaction " + op.getTxId() + " fails to read.");
                 } else {
                     System.out.println("Read Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
                     toBeRemoved.add(op);
