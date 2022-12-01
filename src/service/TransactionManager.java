@@ -138,7 +138,7 @@ public class TransactionManager {
 
         Transaction transaction = this.transactions.get(txId);
         if (transaction.isAborted()) {
-            System.out.println("[Timestamp: " + this.timer + "] " + txId + " is aborted.");
+            System.out.println("[Timestamp: " + this.timer + "] " + txId + " is aborted, because site is failed.");
             processAbortedTx(txId);
         } else { // commit
             System.out.println("[Timestamp: " + this.timer + "] " + txId + " is committed.");

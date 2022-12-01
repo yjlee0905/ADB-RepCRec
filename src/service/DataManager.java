@@ -24,6 +24,7 @@ public class DataManager {
 
     private Map<String, List<History>> commitHistories = new HashMap<>(); // key: variable
 
+    // initialize site
     public DataManager(Integer id, Long time) {
         this.id = id;
         this.isUp = true;
@@ -69,7 +70,11 @@ public class DataManager {
 
     public Map<String, List<Lock>> getLockWaitingList() {return this.lockWaitingList;}
 
-
+    /**
+    * This method process READ operation
+    * @params String varName, String txId, Long timestamp
+    * @return value read from the site, return null if READ operation is not possible
+    * */
     public Integer read(String varName, String txId, Long timestamp) {
         Variable variable = variables.get(varName);
         if (!variable.canRead()) {
@@ -125,6 +130,11 @@ public class DataManager {
         return null;
     }
 
+    /**
+     * This method process WRITE operation
+     * @params String varName, Integer value, Long timestamp, String txId
+     * @return no return
+     * */
     public void write(String varName, Integer value, Long timestamp, String txId) {
         if (!curLock.containsKey(varName) || curLock.get(varName) == null || curLock.get(varName).getCurLock() == null) {
             Lock lock = new Lock(txId, varName, LockType.WRITE, timestamp);
@@ -150,6 +160,11 @@ public class DataManager {
         // TODO check replicated variable changed to isRead > X 아닌 듯?
     }
 
+    /**
+     * Check whether there is a WRITE lock request waiting for the variable "varName".
+     * @params String varName
+     * @return boolean
+     * */
     public boolean checkWriteLockInWaitingList(String varName) {
         List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
 
@@ -164,6 +179,11 @@ public class DataManager {
 
     }
 
+    /**
+     * Check whether there is a WRITE lock request waiting for the variable "varName" other than transaction "txId"
+     * @params String varName, String txId
+     * @return boolean
+     * */
     public boolean checkOtherWriteLockInWaitingList(String varName, String txId) {
         List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
 
@@ -177,6 +197,12 @@ public class DataManager {
         return false;
     }
 
+    /**
+     * Add lock to the lock waiting list except when current transaction already has READ lock waiting in waiting list
+     * or the same lock type is in the lock waiting list
+     * @params String varName, String txId, LockType lockType, Long timestamp
+     * @return no return
+     * */
     public void addToLockWaitingList(String varName, String txId, LockType lockType, Long timestamp) {
         List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
 
@@ -210,6 +236,12 @@ public class DataManager {
         return this.isUp;
     }
 
+
+    /**
+     * Check whether the transaction can hold WRITE lock or not
+     * @params String txId, String variableName, Long timestamp
+     * @return boolean
+     * */
     public boolean isWriteLockAvailable(String txId, String variableName, Long timestamp) {
         if (!this.curLock.containsKey(variableName) || this.curLock.get(variableName).getCurLock() == null) return true;
 
@@ -246,11 +278,17 @@ public class DataManager {
         return false;
     }
 
+    /**
+     * clear te current lockTable
+     * */
     public void clearLockTable() {
         this.curLock.clear();
         //this.lockWaitingList.clear();
     }
 
+    /**
+     * show all the current values of variables
+     * */
     public void showVariables() {
         List<Integer> varIds = new ArrayList<>();
         for (String varName: this.variables.keySet()) {
@@ -264,6 +302,10 @@ public class DataManager {
         }
     }
 
+    /**
+     * @params String txId, Long timestamp
+     * @return no return
+     * */
     public void processCommit(String txId, Long timestamp) {
         for (String varName: tempVars.keySet()) {
             Variable variable = tempVars.get(varName);
@@ -296,6 +338,12 @@ public class DataManager {
         // updateCurLock(timestamp);
     }
 
+    /**
+     * release lock with txId : if transaction has READ lock, also release the shared lock
+     * after release, take next lock in the lock waiting list
+     * @params String txId, Long timestamp
+     * @return no return
+     * */
     public void clearTxId(String txId, Long timestamp) {
         // remove current lock for txId
         //curLock.entrySet().removeIf(entry -> entry.getValue().getCurLock().getTxId().equals(txId));
@@ -323,6 +371,11 @@ public class DataManager {
         updateCurLock(timestamp);
     }
 
+    /**
+     * take next lock waiting in the waiting list, and set the lock to the current lock
+     * @param timestamp Long
+     * @return no return
+     * */
     private void updateCurLock(Long timestamp) {
         for (String varName: curLock.keySet()) {
             if (curLock.get(varName).getCurLock() != null || lockWaitingList.get(varName) == null || lockWaitingList.get(varName).size() == 0) continue;
@@ -364,8 +417,13 @@ public class DataManager {
         }
     }
 
+    /**
+     * remove transaction from lock wait list
+     * @param txId String
+     * @return void
+     * */
+
     public void clearTxIdFromLockWaitingList(String txId) {
-        // remove transaction from lock wait list
         for (String varName: lockWaitingList.keySet()) {
             List<Lock> toBeRemoved = new ArrayList<>();
             for (Lock lock: lockWaitingList.get(varName)) {
@@ -378,7 +436,12 @@ public class DataManager {
     }
 
 
-
+    /**
+     * This function is for read-only transaction.
+     * Get values of varName that has valid committed value before read-only transaction starts.
+     * @params varName String, readOnlyStartTime Long, failHistories List<History>
+     * @return Integer
+     * */
     public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistories) {
         // TODO works, but need to check during OH
         Variable variable = variables.get(varName);
