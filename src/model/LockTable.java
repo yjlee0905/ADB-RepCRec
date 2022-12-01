@@ -43,7 +43,7 @@ public class LockTable {
 
     public void promoteFromReadLockToWriteLock(String varName, String txId, Long timestamp) {
         readLocks.remove(txId);
-        curLock = new Lock(varName, txId, LockType.WRITE, timestamp);
+        curLock = new Lock(txId, varName, LockType.WRITE, timestamp);
     }
 
 }

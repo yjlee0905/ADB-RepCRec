@@ -293,7 +293,7 @@ public class DataManager {
         clearTxId(txId, timestamp);
 
         // TODO update lock table
-        //updateCurLock(timestamp);
+        // updateCurLock(timestamp);
     }
 
     public void clearTxId(String txId, Long timestamp) {
@@ -313,7 +313,7 @@ public class DataManager {
 
             } else if (currentLock.getLockType() == LockType.READ) {
                 lockTable.releaseReadLock(txId);
-                if (lockTable.getReadLocks() == null || lockTable.getReadLocks().size() == 0) {
+                if (lockTable.getReadLocks() == null || lockTable.getReadLocks().size() == 0 || lockTable.getReadLocks().isEmpty()) {
                     lockTable.setCurLock(null);
                 }
             }
