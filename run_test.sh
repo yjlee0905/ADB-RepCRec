@@ -1,9 +1,12 @@
 mkdir -p output
 
-for FILE in data/*.txt;
+FILES="data/*.txt"
 
+for FILE in $FILES;
 do
+    # echo $FILE
     echo "Running input $FILE"
+    removedSlash="${FILE##*/}"
     ../../../usr/bin/java -jar adb_repcrec.jar $FILE
-    ../../../usr/bin/java -jar adb_repcrec.jar $FILE  > output/outfile_${FILE/\//}
+    ../../../usr/bin/java -jar adb_repcrec.jar $FILE > output/outfile_${removedSlash}
 done
