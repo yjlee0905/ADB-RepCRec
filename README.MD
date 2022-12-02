@@ -36,7 +36,14 @@ Java HotSpot(TM) 64-Bit Server VM (build 19.0.1+10-21, mixed mode, sharing)
 ```
 
 
-## Compile and Creating JAR <Just in Case>
+## Compile and Creating JAR
+
+There are multiple ways to create a JAR file, depending
+on the IDE and environment. The following is one way to create a JAR file for this project.
+Download the repository and move to the project directory in your terminal.
+We did not create the JAR using the below way, but used IntelliJ IDEA's feature, so be catious
+of the version of ```javac``` for compiling.
+
 ``` 
 cd src
 
@@ -47,10 +54,6 @@ javac *.java
 java Test ../data/test1.txt
 ```
 
-There are multiple ways to create a JAR file, depending
-on the IDE and environment. The following is one way
-to create a JAR file for this project. Download the repository
-and move to the project directory in your terminal.
 
 Stay in the ``` src/ ``` directory for the following commands.
 
@@ -70,7 +73,7 @@ Now you have a ``` RepCRec.jar``` file, and this could be executed wherever in t
 
 This assumes that the Java version on the machine is Java 19, for CIMS it would be differet to reproduce under the reprounzp directory. See below on how to run the JAR file on CIMS or on a reprounzipped-directory.
 
-## Execution
+## Execution, assuming that Java verion is 19, for Reprounzip please see below commands.
 ```
 java -jar RepCRec.jar /path/to/inputFile
 ```
@@ -79,6 +82,9 @@ java -jar RepCRec.jar /path/to/inputFile
 ```
 java -jar RepCRec.jar /path/to/inputFile > output_path
 ```
+
+If you encounter an error that says that 
+
 
 ## Shell script to run all examples
 Make sure that all input files are under the data directory and has the txt extension, and that this script is in the same direcetory as the JAR file for execution.
@@ -164,8 +170,5 @@ All the output files will be created under the ```output``` directory.
 
 There was a problem while using reprounzip which is resolved, but should be documented in case such problem happend again.
 
-The run_test.sh file originally had a shebang ```#!/bin/sh```, and this made the system to run its native Java installed, rather than taking the binary Java file that is produced by reprounzip. Removing it alleviated the problem, but if similar problems occur, one should check if there were any files that enforced an environment.
-
-
-
+I realized that when I plainly used ``` java -jar RepCRec.jar /path/to/inputFile ```, it would grab the java binary of the system, but not from the binary from the reprounzipped directory. Therefore I had to manually direct to use the java version by ```../../../usr/bin/java -jar RepCRec.jar path/to/input/file.```
 
