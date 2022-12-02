@@ -17,11 +17,11 @@ public class DeadlockDetector {
 
     /**
      * A helper function to determine if a target Lock has the same timestamp
-     * as the locks inside the combinedLockQforVar
+     * as the locks inside the combinedLockQforVar, timestamp is used as id because there is always only 1 operation at a time.
      * No side effects.
      * @param combinedLockQforVar
      * @param target
-     * @return boolean if the combinedLockQforVar is null or empty
+     * @return boolean if the combinedLockQforVar has the same lock with target
      */
     private boolean isLockIncluded(List<Lock> combinedLockQforVar, Lock target) {
         if (combinedLockQforVar == null || combinedLockQforVar.size() == 0) return false;

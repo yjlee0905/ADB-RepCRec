@@ -107,7 +107,7 @@ public class Variable {
      * Setter of the IsRead variable
      *
      * Has a side effect of modifying the isRead variable as
-     * the paramter input
+     * the parameter input
      *
      * @param isRead boolean
      */

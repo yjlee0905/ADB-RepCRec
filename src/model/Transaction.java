@@ -64,7 +64,7 @@ public class Transaction {
     /**
      * Setter of the abortion status
      *
-     * A side effect of modifying the abortion status of the currnet class
+     * A side effect of modifying the abortion status of the current class
      *
      * @param isAborted a boolean that will change the status as is
      */

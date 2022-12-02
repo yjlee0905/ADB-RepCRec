@@ -230,6 +230,7 @@ public class TransactionManager {
         site.setVariablesIsRead(false);
         // from test 3.5 comment, this values can be readable after write operation occurs.
     }
+
     /**
      * show the values of all the variables in all the sites
      * no parameters and no returns
@@ -332,7 +333,8 @@ public class TransactionManager {
      * For the sites that are up and has the variable, we do the read operation.
      * When we can read the value of variable from the sites returns the value,
      * but if not return null.
-     * @params txId String, variableName String
+     * @param txId String
+     * @param variableName String
      * @return Integer, the value of variableName read from available site
      * */
     private Integer processRead(String txId, String variableName) {
@@ -370,7 +372,8 @@ public class TransactionManager {
      * if variable is not replicated, return the last value committed before starting of the read-only transaction value directly,
      * if variable is replicated, if there is no fail history between last commit and starting of the read-only transaction, return the value.
      * If there is no corresponding value for the variable, return null
-     * @params txId String, variableName String
+     * @param txId String
+     * @param variableName String
      * @return Integer
      * */
     private Integer processReadOnly(String txId, String variableName) {
@@ -393,7 +396,10 @@ public class TransactionManager {
      * Within the WRITE operation, if there is at least 1 site that cannot get the write lock, the operation should wait for the lock.
      * When all the sites are available of holding the WRITE lock, we can write to temporary value(because the value is not committed yet) and add visited sites for the transaction.
      * If write lock conflict occurs and cannot do WRITE operation, return null
-     * @params txId String, variableName String, value Integer, op Operation
+     * @param txId String
+     * @param variableName String
+     * @param value Integer
+     * @param op Operation
      * @return Operation if write operation is completed, if not return null
      * */
     private Operation processWrite(String txId, String variableName, Integer value, Operation op) {

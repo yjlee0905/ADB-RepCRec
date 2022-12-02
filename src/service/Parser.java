@@ -33,7 +33,7 @@ public class Parser {
      * A function that will be called in TransactionManager's runSimulation function
      * to that will parse the commands in the input file as a 2D List of Strings
      *
-     * No side effects, but it will print on the console whenver a file does not exist.
+     * No side effects, but it will print on the console whenever a file does not exist.
      *
      * @return List<List<String>> which contains the type of operation, variable name or value
      * depending on the operation parsed from the input file

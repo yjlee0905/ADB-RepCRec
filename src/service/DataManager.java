@@ -24,7 +24,7 @@ public class DataManager {
 
     private boolean isUp;
 
-    private Map<String, Variable> variables = new HashMap<>(); // commited value
+    private Map<String, Variable> variables = new HashMap<>(); // committed value
 
     private Map<String, Variable> tempVars = new HashMap<>(); // key: variable, value: Variable, values that are not committed yet
 
@@ -399,7 +399,8 @@ public class DataManager {
     /**
      * release lock with txId : if transaction has READ lock, also release the shared lock
      * after release, take next lock in the lock waiting list
-     * @params String txId, Long timestamp
+     * @param txId String
+     * @param timestamp Long
      * @return no return
      * */
     public void clearTxId(String txId, Long timestamp) {
