@@ -11,7 +11,8 @@ public class Lock {
 
     /**
      * Constructor for Lock.
-     * The side effect is that it will allocate memory to create a Lock.
+     *
+     * No side effect other than allocating memory for the Lock
      *
      * @param txId
      * @param variableName
@@ -27,6 +28,7 @@ public class Lock {
 
     /**
      * Accessor for Transaction ID
+     *
      * No side effect
      *
      * @return String
@@ -37,6 +39,7 @@ public class Lock {
 
     /**
      * Accessor for the Lock's Type
+     *
      * No side effect
      *
      * @return LockType

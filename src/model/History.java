@@ -26,7 +26,21 @@ public class History {
         this.timestamp = timestamp;
     }
 
+    /**
+     * Accessor for Timestamp
+     *
+     * No side effect
+     *
+     * @return Long of timestamp
+     */
     public Long getTimestamp() {return timestamp;}
 
+    /**
+     * Accessor of the SnapshotValue
+     *
+     * No side effect
+     *
+     * @return Integer of value
+     */
     public Integer getSnapshotValue() {return value;}
 }
