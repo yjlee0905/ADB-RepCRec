@@ -51,7 +51,7 @@ public class TransactionManager {
      * no param and return
      * */
     public void runSimulation() {
-        Parser parser = new Parser("data/new3");
+        Parser parser = new Parser("data/test8.txt");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -110,7 +110,7 @@ public class TransactionManager {
 
         }
         // for debugging
-        dump();
+        // dump();
     }
 
     /**
