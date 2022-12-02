@@ -1,7 +1,7 @@
 
 ## Requirements
 
-Java 19 was used for compiling and executing the program. Although reprozip/reprounzip will help to able to make the program reproducible regardless of the Java version or system, we are just stating which Java version was used to compile and create the progrm/JAR.
+Java 19 was used for compiling and executing the program. Although reprozip/reprounzip will help to make the program reproducible regardless of the Java version or system, we are just stating which Java version was used to compile and create the progrm/JAR.
 
 
 #### Installing Java 19
@@ -27,7 +27,6 @@ After installing/changing, confirm the version by
 ```
 java -verison
 ```
-
 should output
 ```
 java 19.0.1 2022-10-18
@@ -38,8 +37,8 @@ Java HotSpot(TM) 64-Bit Server VM (build 19.0.1+10-21, mixed mode, sharing)
 
 ## Compile and Creating JAR
 
-There are multiple ways to create a JAR file, depending
-on the IDE and environment. The following is one way to create a JAR file for this project.
+There are multiple ways to create a JAR file, depending on the IDE and environment.
+The following is one way to create a JAR file for this project.
 Download the repository and move to the project directory in your terminal.
 We did not create the JAR using the below way, but used IntelliJ IDEA's feature, so be catious
 of the version of ```javac``` for compiling.
@@ -71,9 +70,9 @@ jar cvfe RepCRec.jar Test @classes.list
 
 Now you have a ``` RepCRec.jar``` file, and this could be executed wherever in the terminal as long as an input file is provided.
 
-This assumes that the Java version on the machine is Java 19, for CIMS it would be differet to reproduce under the reprounzp directory. See below on how to run the JAR file on CIMS or on a reprounzipped-directory.
+This assumes that the Java version on the machine is Java 19, for CIMS it would be different to reproduce under the reprounzp directory. See below on how to run the JAR file on CIMS or on a reprounzipped-directory.
 
-## Execution, assuming that Java verion is 19, for Reprounzip please see below commands.
+## Execution (assuming with Java 19, for Reprounzip please see below).
 ```
 java -jar RepCRec.jar /path/to/inputFile
 ```
@@ -83,7 +82,7 @@ java -jar RepCRec.jar /path/to/inputFile
 java -jar RepCRec.jar /path/to/inputFile > output_path
 ```
 
-If you encounter an error that says that 
+If you encounter an error that says that the Java version does not match in CIMS in a repro-unzipped directory, please see the below commands for executing the JAR program.
 
 
 ## Shell script to run all examples
@@ -145,7 +144,7 @@ export LC_ALL=C
 
 #### Unzip the .rpz file and replicate the experiment
 
-To unzip and run the experiment traced by reprozip, firstly unzip the .rpz file by and create a directory called unzipped_adb and place it inside that by
+To unzip and run the experiment traced by reprozip, firstly unzip the .rpz file by creating a directory called unzipped_adb by
 ```
  ./reprounzip directory setup adb-repcrec-final.rpz ~/unzipped_adb 
 ```
