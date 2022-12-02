@@ -56,6 +56,13 @@ public class TransactionManager {
         init();
 
         for (List<String> command: commands) {
+
+            if (command.size() == 0) {
+                System.out.println("[Timestamp: " + this.timer + "]");
+                timer++;
+                continue;
+            }
+
             String operation = command.get(0);
 
             // When deadlock detection happens at every tick, it should be at the beginning for the tick (from instruction)
@@ -103,7 +110,7 @@ public class TransactionManager {
 
         }
         // for debugging
-        dump();
+        //dump();
     }
 
     /**

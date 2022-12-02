@@ -47,7 +47,13 @@ public class Parser {
             while (reader.hasNextLine()) {
                 String line = reader.nextLine().trim();
 
-                if (line.length() == 0 || line.startsWith("//")) continue;
+                if (line.length() == 0) {
+                    parsedCommands.add(new ArrayList<>());
+                    continue;
+                } else if (line.startsWith("//"))  {
+                    continue;
+                }
+
                 if (line.indexOf("//") > 0) {
                     line = line.substring(0, line.indexOf("//"));
                 }
