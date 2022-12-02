@@ -510,34 +510,40 @@ public class DataManager {
     public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistories) {
         // TODO works, but need to check during OH
         Variable variable = variables.get(varName);
-        if (variable.canRead()) {
-            List<History> variableHistory = commitHistories.get(varName);
-            Collections.reverse(variableHistory);
 
-            if (!variable.isReplicated()) {
-                for (History history: variableHistory) {
-                    if (history.getTimestamp() <= readOnlyStartTime) {
-                        return history.getSnapshotValue();
-                    }
-                }
-                return null;
-            } else { // replicated
-                if (failHistories == null || failHistories.size() == 0) {
-                    return variable.getValue();
-                }
+        List<History> variableHistory = commitHistories.get(varName);
+        Collections.reverse(variableHistory);
 
-                History lastCommit = commitHistories.get(varName).get(0);
-                for (History failHistory: failHistories) {
-                    if (lastCommit.getTimestamp() <= failHistory.getTimestamp() && failHistory.getTimestamp() <= readOnlyStartTime) {
-                        return null;
-                    }
+        if (!variable.isReplicated()) {
+            for (History history: variableHistory) {
+                if (history.getTimestamp() <= readOnlyStartTime) {
+                    return history.getSnapshotValue();
                 }
-                return lastCommit.getSnapshotValue();
-
             }
-        }
-        return null;
+            return null;
+        } else { // replicated
+//            if (failHistories == null || failHistories.size() == 0) {
+//                return variable.getValue();
+//            }
 
+            // History lastCommit = commitHistories.get(varName).get(0);
+            History lastCommit = null;
+            for (History varHistory: variableHistory) {
+                if (varHistory.getTimestamp() <= readOnlyStartTime) {
+                    lastCommit = varHistory;
+                    break;
+                }
+            }
+            if (lastCommit == null) return null;
+            // if (lastCommit.getTimestamp() > readOnlyStartTime) return null;
+            for (History failHistory: failHistories) {
+                if (lastCommit.getTimestamp() <= failHistory.getTimestamp() && failHistory.getTimestamp() <= readOnlyStartTime) {
+                    return null;
+                }
+            }
+            return lastCommit.getSnapshotValue();
+
+        }
     }
 
     /**

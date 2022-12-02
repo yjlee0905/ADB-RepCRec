@@ -51,7 +51,7 @@ public class TransactionManager {
      * no param and return
      * */
     public void runSimulation() {
-        Parser parser = new Parser("data/test20.txt");
+        Parser parser = new Parser("data/new3");
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
@@ -110,7 +110,7 @@ public class TransactionManager {
 
         }
         // for debugging
-        //dump();
+        dump();
     }
 
     /**
@@ -316,6 +316,7 @@ public class TransactionManager {
                 System.out.print("[Timestamp: " + this.timer + "] ");
                 Integer result = processReadOnly(op.getTxId(), op.getVarName());
                 if (result == null) {
+                    //transactions.get(op.getTxId()).setIsAborted(true);
                     System.out.println("Read-only Transaction " + op.getTxId() + " fails to read.");
                 } else {
                     System.out.println("Read-only Transaction " + op.getTxId() + " successfully reads the data, " + op.getVarName() + ": " + result);
