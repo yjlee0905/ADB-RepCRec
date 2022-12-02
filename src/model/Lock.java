@@ -1,3 +1,8 @@
+/**
+ * @author Yunjeon Lee, Kyu Doun Sim
+ * @date Nov 27th - Dec 1st, 2022
+ */
+
 package model;
 
 import model.type.LockType;
