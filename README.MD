@@ -153,6 +153,20 @@ and then to reproduce the experiment traced by reprozip, run
 ```
  ./reprounzip directory run ~/unzipped_adb 
 ```
+then it will create a directory called "unzipped_adb", and inside of it, it has the following structure.
+```
+|-- config.yml
+|-- inputs.tar.gz
+`-- root
+    |-- home
+    |   `-- inbro
+    |       `-- ADB-RepCRec
+```
+
+Move inside the ```root/home/inbro/ADB-RepCRec``` directory, then this has the same files and environment
+that was reprozipped. 
+
+From this ```~/unzipped_adb/root/home/inbro/ADB-RepCRec``` directory, you can execute the JAR program.
 
 If you want to the JAR program individually,
 ```
