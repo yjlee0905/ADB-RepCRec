@@ -14,6 +14,7 @@ public class DataManager {
 
     private Map<String, LockTable> curLock = new HashMap<>(); // key: variable, value: LockTable
 
+    // locks are acquired in first-come-first-serve fashion
     private Map<String, List<Lock>> lockWaitingList = new HashMap<>(); // key: variable, value: currently, first TxId has lock
 
     private boolean isUp;

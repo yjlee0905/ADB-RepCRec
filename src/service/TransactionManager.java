@@ -48,6 +48,8 @@ public class TransactionManager {
 
         for (List<String> command: commands) {
             String operation = command.get(0);
+
+            // When deadlock detection happens at every tick, it should be at the beginning for the tick (from instruction)
             if (detector.isDeadLock(sites, transactions)) {
                 Transaction victim = transactions.get(detector.getVictimAbortionTxID(transactions));
                 victim.setIsAborted(true);
@@ -179,7 +181,7 @@ public class TransactionManager {
     }
 
     /**
-     * When the site: siteId fails, set isUp attribute in DataManager(site) to false, and clear the lock table (lock information disappears when site is failed)
+     * When the site: siteId fails, set isUp attribute in DataManager(site) to false, and erase the lock table (lock information disappears when site is failed)
      * If there is a transaction that visited the site: siteId before it fails, that transaction should be aborted.
      * Add this fail event to fail histories.
      * @param siteId Integer
@@ -223,7 +225,12 @@ public class TransactionManager {
     private void dump() {
         System.out.println("[Timestamp: " + this.timer + "] Dump");
         for (DataManager site: this.sites) {
-            System.out.print("Site " + site.getId() + " - ");
+            System.out.print("Site " + site.getId() + ", Status: ");
+            if (site.isUp()) {
+                System.out.print("Up, - ");
+            } else {
+                System.out.print("Down, - ");
+            }
             site.showVariables();
             System.out.println();
         }
@@ -292,7 +299,7 @@ public class TransactionManager {
                     System.out.println("Read-only Transaction " + op.getTxId() + " fails to read and is aborted.");
                     // TODO abort?
                 } else {
-                    System.out.println("Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
+                    System.out.println("Read-only Transaction " + op.getTxId() + " successfully reads the data, " + op.getVarName() + ": " + result);
                     toBeRemoved.add(op);
                 }
             } else if (op.getOperationType().equals(OperationType.READ)) {
@@ -301,7 +308,7 @@ public class TransactionManager {
                 if (result == null) {
                     System.out.println("Read Transaction " + op.getTxId() + " fails to read.");
                 } else {
-                    System.out.println("Read Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
+                    System.out.println("Read Transaction " + op.getTxId() + " successfully reads the data, " + op.getVarName() + ": " + result);
                     toBeRemoved.add(op);
                 }
             }
