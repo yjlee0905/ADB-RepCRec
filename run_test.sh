@@ -7,6 +7,6 @@ do
     # echo $FILE
     echo "Running input $FILE"
     removedSlash="${FILE##*/}"
-    java -jar adb_repcrec.jar $FILE
-    java -jar adb_repcrec.jar $FILE > output/outfile_${removedSlash}
+    ../../../usr/bin/java -jar adb_repcrec.jar $FILE
+    ../../../usr/bin/java -jar adb_repcrec.jar $FILE > output/outfile_${removedSlash}
 done
