@@ -10,6 +10,14 @@ import java.util.stream.Collectors;
 public class DeadlockDetector {
     List<String> victimSiteList = new ArrayList<>();
 
+    /**
+     * A helper function to determine if a target Lock has the same timestamp
+     * as the locks inside the combinedLockQforVar
+     * No side effects.
+     * @param combinedLockQforVar
+     * @param target
+     * @return boolean if the combinedLockQforVar is null or empty
+     */
     private boolean isLockIncluded(List<Lock> combinedLockQforVar, Lock target) {
         if (combinedLockQforVar == null || combinedLockQforVar.size() == 0) return false;
 
@@ -21,6 +29,14 @@ public class DeadlockDetector {
         return false;
     }
 
+    /**
+     * A function that will iterate through all the sites to detect a deadlock
+     * No side effects, will not modify any state outside the scope.
+     *
+     * @param sites
+     * @param transactions
+     * @return boolean if there is a deadlock in the sites
+     */
     public boolean isDeadLock(List<DataManager> sites, Map<String, Transaction> transactions) {
         victimSiteList.clear();
 
@@ -196,13 +212,22 @@ public class DeadlockDetector {
         }
 
         // final bool
-        // there cannot be a deadlock if there is only one transcation
+        // there cannot be a deadlock if there is only one transaction
         if (victimSiteList.size() == 1 || victimSiteList.isEmpty()) {
             return false;
         }
 
         return true;
     }
+
+    /**
+     * This function will be invoked when the above isDeadlock returns true
+     * and will give the youngest transaction that is causing the deadlock
+     *
+     * No side effects.
+     * @param transactions
+     * @return String of the youngest transaction's TID
+     */
 
     public String getVictimAbortionTxID(Map<String, Transaction> transactions) {
         String vimctimID = "";
