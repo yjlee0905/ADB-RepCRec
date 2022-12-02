@@ -8,6 +8,16 @@ public class Lock {
     private LockType lockType;
     private Long timestamp;
 
+
+    /**
+     * Constructor for Lock.
+     * The side effect is that it will allocate memory to create a Lock.
+     *
+     * @param txId
+     * @param variableName
+     * @param lockType
+     * @param timestamp
+     */
     public Lock(String txId, String variableName, LockType lockType, Long timestamp) {
         this.txId = txId;
         this.variableName = variableName;
@@ -15,13 +25,31 @@ public class Lock {
         this.timestamp = timestamp;
     }
 
+    /**
+     * Accessor for Transaction ID
+     * No side effect
+     *
+     * @return String
+     */
     public String getTxId() {
         return this.txId;
     }
 
+    /**
+     * Accessor for the Lock's Type
+     * No side effect
+     *
+     * @return LockType
+     */
     public LockType getLockType() {
         return this.lockType;
     }
 
+    /**
+     * Accessor for the Lock's Timestamp
+     * No side effect
+     *
+     * @return Long
+     */
     public Long getTimestamp() {return this.timestamp;}
 }

@@ -16,6 +16,15 @@ public class Parser {
         this.fileName = fileName;
     }
 
+    /**
+     *
+     * A function that will be called in TransactionManager's runSimulation function
+     * to that will parse the commands in the input file as a 2D List of Strings
+     *
+     * @return List<List<String>> which contains the type of operation, variable name or value
+     * depending on the operation parsed from the input file
+     *
+     */
     public List<List<String>> readAndParseCommands() {
         List<List<String>> parsedCommands = new ArrayList();
         File inputFile = new File(this.fileName);

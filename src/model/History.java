@@ -8,6 +8,16 @@ public class History {
     private String committedBy;
     private Long timestamp;
 
+    /**
+     * Construct for History
+     * The side effect is that it will allocate memory to create a History.
+     *
+     * @param siteId
+     * @param varName
+     * @param value
+     * @param committedBy
+     * @param timestamp
+     */
     public History(Integer siteId, String varName, Integer value, String committedBy, Long timestamp) {
         this.siteId = siteId;
         this.variableName = varName;
