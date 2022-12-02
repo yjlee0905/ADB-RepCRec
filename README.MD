@@ -36,7 +36,7 @@ Java HotSpot(TM) 64-Bit Server VM (build 19.0.1+10-21, mixed mode, sharing)
 ```
 
 
-## Compile and Creating JAR
+## Compile and Creating JAR <Just in Case>
 ``` 
 cd src
 
@@ -63,19 +63,21 @@ Create a jar file from all the .class files listed in classes.list file with an 
 the entry point of this project: (again we are staying in the src directory, but the point is that we are
 executing the command where Test.class is located.)
 ```
-jar cvfe adb_repcrec.jar Test @classes.list
+jar cvfe RepCRec.jar Test @classes.list
 ```
 
-Now you have a ``` adb_repcrec.jar``` file, and this could be executed wherever in the terminal as long as an input file is provided.
+Now you have a ``` RepCRec.jar``` file, and this could be executed wherever in the terminal as long as an input file is provided.
+
+This assumes that the Java version on the machine is Java 19, for CIMS it would be differet to reproduce under the reprounzp directory. See below on how to run the JAR file on CIMS or on a reprounzipped-directory.
 
 ## Execution
 ```
-java -jar adb_repcrec.jar /path/to/inputFile
+java -jar RepCRec.jar /path/to/inputFile
 ```
 
 ## Re-direct the standard output to a file.
 ```
-java -jar adb_repcrec.jar /path/to/inputFile > output_path
+java -jar RepCRec.jar /path/to/inputFile > output_path
 ```
 
 ## Shell script to run all examples
@@ -92,7 +94,7 @@ We will package by using ```reprozip``` in a directory called ADB-RepCRec that h
 ```
 ~/ADB-RepCRec$ tree
 .
-├── adb-repcrec.jar
+├── RepCRec.jar
 ├── data
 │   ├── test1.txt
 │   ├── test10.txt
@@ -114,10 +116,10 @@ reprozip trace ./run_time.sh
 #### Packing using Reprozip
 Then,
 ```
-reprozip pack adb
+reprozip pack adb-repcrec-final
 ```
 
-Above command will create an adb.rpz, and this will allow the ./run_time.sh command to be reproduced as long as a system has reprounzip.
+Above command will create an adb-repcrec-final.rpz, and this will allow the ```./run_time.sh``` command to be reproduced as long as a system has reprounzip.
 
 After transfering this file to a system with reprounzip, you can run the following commands. You might need to ```./reprounzip``` depending on if the system has reprounzip installed or in a binary format. The following assumes that you are running this on CIMS.
 
@@ -125,23 +127,38 @@ After transfering this file to a system with reprounzip, you can run the followi
 
 #### Checking the contents of .rpz file
 ```
-./reprounzip showfiles adb.rpz
+./reprounzip showfiles adb-repcrec-final.rpz
 
-./reprounzip info adb.rpz
+./reprounzip info adb-repcrec-final.rpz
 ```
 
+In case reprounzip gives an error, run 
+```
+export LC_ALL=C
+```
 
 #### Unzip the .rpz file and replicate the experiment
 
 To unzip and run the experiment traced by reprozip, firstly unzip the .rpz file by and create a directory called unzipped_adb and place it inside that by
 ```
- ./reprounzip directory setup adb.rpz ~/unzipped_adb 
+ ./reprounzip directory setup adb-repcrec-final.rpz ~/unzipped_adb 
 ```
 
 and then to reproduce the experiment traced by reprozip, run
 ```
  ./reprounzip directory run ~/unzipped_adb 
 ```
+
+If you want to the JAR program individually,
+```
+../../../usr/bin/java -jar RepCRec.jar path/to/input/file
+ 
+../../../usr/bin/java -jar RepCRec.jar path/to/input/file > path/to/output/file
+
+```
+
+Or if you want to add additional test cases, add them inside the data directory and then run ```./run_test.sh```.
+All the output files will be created under the ```output``` directory.
 
 ## Misc.
 
