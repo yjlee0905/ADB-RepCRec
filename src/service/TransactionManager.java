@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 
 public class TransactionManager {
 
+    private String inputFilePath = "";
+
     private Long timer = Long.valueOf(0);
 
     private List<DataManager> sites = new ArrayList<>();
@@ -28,6 +30,16 @@ public class TransactionManager {
     private Map<Integer, List<History>> failHistories = new HashMap<>(); // key: site, value: fail timestamp
 
     private DeadlockDetector detector = new DeadlockDetector();
+
+    /**
+     * Constructor of TransactionManager that takes in
+     * a inputFilepath
+     *
+     * @param inputFilepath
+     */
+    public TransactionManager(String inputFilepath) {
+        this.inputFilePath = inputFilepath;
+    }
 
     /**
      * initialize the program
@@ -51,7 +63,7 @@ public class TransactionManager {
      * no param and return
      * */
     public void runSimulation() {
-        Parser parser = new Parser("data/test8.txt");
+        Parser parser = new Parser(this.inputFilePath);
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
