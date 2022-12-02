@@ -353,7 +353,10 @@ public class DataManager {
     }
 
     /**
-     * @params String txId, Long timestamp
+     * update the value of variable from the tempVars and add to commit history.
+     * after that, remove the lock triggered by txId in lock table and update the current lock.
+     * @param txId String
+     * @param timestamp Long
      * @return no return
      * */
     public void processCommit(String txId, Long timestamp) {
@@ -422,7 +425,9 @@ public class DataManager {
     }
 
     /**
-     * take next lock waiting in the waiting list, and set the lock to the current lock
+     * take next lock waiting in the waiting list, and set this next lock to the current lock
+     * (WRITE for exclusive lock, READ for shared read lock)
+     * If there is only one shared read lock with transaction A and transaction A needs WRITE lock, the lock is promoted to WRITE lock.
      * @param timestamp Long
      * @return no return
      * */
@@ -470,9 +475,8 @@ public class DataManager {
     /**
      * remove transaction from lock wait list
      * @param txId String
-     * @return void
+     * @return no return
      * */
-
     public void clearTxIdFromLockWaitingList(String txId) {
         for (String varName: lockWaitingList.keySet()) {
             List<Lock> toBeRemoved = new ArrayList<>();
@@ -489,8 +493,13 @@ public class DataManager {
     /**
      * This function is for read-only transaction.
      * Get values of varName that has valid committed value before read-only transaction starts.
-     * @params varName String, readOnlyStartTime Long, failHistories List<History>
-     * @return Integer
+     * For the non-replicated variable, get the value of last commit before the read-only transaction starts.
+     * For the replicated variable, get the value of last commit before the read-only transaction starts when there is no fail history between them.
+     * If there is no suitable snapshot value at this time, return null
+     * @param varName String
+     * @param readOnlyStartTime Long
+     * @param failHistories List<History>
+     * @return Integer, value of the variable within the snapshot from read-only transaction start time
      * */
     public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistories) {
         // TODO works, but need to check during OH
