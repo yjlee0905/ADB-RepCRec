@@ -14,7 +14,7 @@ public class TransactionManager {
 
     private List<DataManager> sites = new ArrayList<>();
 
-    private Map<String, Transaction> transactions = new HashMap<>(); // key: T1, value: Transaction
+    private Map<String, Transaction> transactions = new HashMap<>(); // key: txId, value: Transaction
 
     private Set<String> readOnlyTx = new HashSet<>();
 
@@ -25,7 +25,7 @@ public class TransactionManager {
     private DeadlockDetector detector = new DeadlockDetector();
 
     /**
-     * initialize the application
+     * initialize the program
      *  - create 10 sites with initialization
      *  - create keys for failHistories (key: site, value: site fail time)
      * no param and return
@@ -41,6 +41,10 @@ public class TransactionManager {
         }
     }
 
+    /**
+     * Get parsed commands from Parser and process the operation one by one
+     * no param and return
+     * */
     public void runSimulation() {
         Parser parser = new Parser("data/test20.txt");
         List<List<String>> commands = parser.readAndParseCommands();
@@ -131,7 +135,8 @@ public class TransactionManager {
 
     /**
      * When the transaction requires READ operation, add to operation queue
-     * @params txId String, variableName String
+     * @param txId String,
+     * @param variableName String
      * @return no return
      * */
     private void read(String txId, String variableName) {
@@ -146,7 +151,9 @@ public class TransactionManager {
 
     /**
      * When the transaction requires WRITE operation, add to operation queue
-     * @params txId String, variableName String, value Integer
+     * @param txId String
+     * @param variableName String
+     * @param value Integer
      * @return no return
      * */
     private void write(String txId, String variableName, Integer value) {
@@ -182,7 +189,7 @@ public class TransactionManager {
 
     /**
      * When the site: siteId fails, set isUp attribute in DataManager(site) to false, and erase the lock table (lock information disappears when site is failed)
-     * If there is a transaction that visited the site: siteId before it fails, that transaction should be aborted.
+     * If there is a transaction that visited the site: siteId before it fails, that transaction should be aborted so set isAborted = true for the transaction.
      * Add this fail event to fail histories.
      * @param siteId Integer
      * @return no return
@@ -237,7 +244,7 @@ public class TransactionManager {
     }
 
     /**
-     * When transaction is aborted, we should release lock from lock table and lock waiting list with txId.
+     * When transaction is aborted, we should release lock from lock table and remove the lock with txId in lock waiting list.
      * And remove the transaction from transactions map and operation queue.
      * Transaction aborted case
      * 1) deadlock detection
@@ -263,7 +270,7 @@ public class TransactionManager {
     }
 
     /**
-     * When transaction is committed, temporary values written my WRITE request (which is no committed yet) should be written
+     * When transaction is committed, temporary values written from WRITE request (which is no committed yet) should be written to the value
      * and should release lock from lock table.
      * And remove the transaction from transaction map
      * @param txId String
@@ -277,7 +284,7 @@ public class TransactionManager {
     }
 
     /**
-     * process the operations in the operation queue.
+     * process the operations in the operation queue and remove the operation when the operation is processed successfully.
      * operation type: read, read-only, write
      * no param and no return
      * */
@@ -296,8 +303,7 @@ public class TransactionManager {
                 System.out.print("[Timestamp: " + this.timer + "] ");
                 Integer result = processReadOnly(op.getTxId(), op.getVarName());
                 if (result == null) {
-                    System.out.println("Read-only Transaction " + op.getTxId() + " fails to read and is aborted.");
-                    // TODO abort?
+                    System.out.println("Read-only Transaction " + op.getTxId() + " fails to read.");
                 } else {
                     System.out.println("Read-only Transaction " + op.getTxId() + " successfully reads the data, " + op.getVarName() + ": " + result);
                     toBeRemoved.add(op);
@@ -357,7 +363,8 @@ public class TransactionManager {
      * For the sites that are up and has the variable, we do the read-only operation.
      * Since read-only transaction does not need lock,
      * if variable is not replicated, return the last value committed before starting of the read-only transaction value directly,
-     * if variable is replicated, if there is no fail history between last commit and starting of the read-only transaction, return the value
+     * if variable is replicated, if there is no fail history between last commit and starting of the read-only transaction, return the value.
+     * If there is no corresponding value for the variable, return null
      * @params txId String, variableName String
      * @return Integer
      * */
@@ -380,6 +387,7 @@ public class TransactionManager {
      * For the sites that are up and has the variable, we do the write operation.
      * Within the WRITE operation, if there is at least 1 site that cannot get the write lock, the operation should wait for the lock.
      * When all the sites are available of holding the WRITE lock, we can write to temporary value(because the value is not committed yet) and add visited sites for the transaction.
+     * If write lock conflict occurs and cannot do WRITE operation, return null
      * @params txId String, variableName String, value Integer, op Operation
      * @return Operation if write operation is completed, if not return null
      * */

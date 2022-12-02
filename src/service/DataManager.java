@@ -15,13 +15,13 @@ public class DataManager {
     private Map<String, LockTable> curLock = new HashMap<>(); // key: variable, value: LockTable
 
     // locks are acquired in first-come-first-serve fashion
-    private Map<String, List<Lock>> lockWaitingList = new HashMap<>(); // key: variable, value: currently, first TxId has lock
+    private Map<String, List<Lock>> lockWaitingList = new HashMap<>(); // key: variable, value: lock waiting list for the variable
 
     private boolean isUp;
 
     private Map<String, Variable> variables = new HashMap<>(); // commited value
 
-    private Map<String, Variable> tempVars = new HashMap<>(); // key: variable, value: Variable
+    private Map<String, Variable> tempVars = new HashMap<>(); // key: variable, value: Variable, values that are not committed yet
 
     private Map<String, List<History>> commitHistories = new HashMap<>(); // key: variable
 
@@ -65,17 +65,40 @@ public class DataManager {
         }
     }
 
+    /**
+     * Accessor for site ID
+     * No side effect
+     * @return Integer
+     */
     public Integer getId() {return this.id;}
 
+    /**
+     * Accessor for current lock table
+     * No side effect
+     * @return Map<String, LockTable>
+     */
     public Map<String, LockTable> getCurLock() { return curLock;}
 
+    /**
+     * Accessor for lock waiting list
+     * No side effect
+     * @return Map<String, List<Lock>>
+     */
     public Map<String, List<Lock>> getLockWaitingList() {return this.lockWaitingList;}
 
     /**
-    * This method process READ operation
-    * @params String varName, String txId, Long timestamp
-    * @return value read from the site, return null if READ operation is not possible
-    * */
+     * This method process READ operation
+     * If the variable is not readable because of the site down, return null
+     * If there is no lock for variable or the transaction already holds READ lock of the variable, we can read the value directly.
+     * If current lock for variable is READ lock and there is no WRITE lock waiting in the wait list, transaction txId can hold READ lock and read the value,
+     * but if there is a WRITE lock waiting in the wait list, transaction txId should wait.
+     * If transaction txId already holds WRITE lock for the variable, we can read temporary value which is not committed yet.
+     * If other transaction holds WRITE lock for the variable, the READ transaction txId should wait.
+     * @param varName String
+     * @param txId String
+     * @param timestamp Long
+     * @return value read from the site, return null if READ operation is not possible
+     * */
     public Integer read(String varName, String txId, Long timestamp) {
         Variable variable = variables.get(varName);
         if (!variable.canRead()) {
@@ -96,8 +119,9 @@ public class DataManager {
         if (curLockForVar.getLockType().equals(LockType.READ)) {
             if (curLock.get(varName).isTxHoldReadLock(txId)) {
                 return variable.getValue();
-                // TODO need write lock check
+
             } else {
+                // TODO need write lock check
                 if (checkWriteLockInWaitingList(varName)) {
                     addToLockWaitingList(varName, txId, LockType.READ, timestamp);
                     System.out.println("Read lock conflict at site: " + id);
@@ -122,21 +146,18 @@ public class DataManager {
                 return null;
             }
         }
-
-//        // TODO shared lock in OH
-//        if (!curLock.containsKey(varName) ||
-//                (curLock.get(varName).equals(txId)) && curLock.get(varName).getCurLock().getLockType().equals(LockType.READ)) {
-//            Lock readLock = new Lock(txId, varName, LockType.READ);
-//            curLock.put(varName, readLock);
-//            return variable.getValue();
-//        }
-
         return null;
     }
 
     /**
      * This method process WRITE operation
-     * @params String varName, Integer value, Long timestamp, String txId
+     * If there is no current lock for variable or the transaction txId already holds WRITE lock for the variable, write the value to tempVars (because this is not committed).
+     * If the transaction txId holds READ lock for the variable and there is no other WRITE lock waiting for the variable,
+     * promote the READ lock to WRITE lock and write the value to tempVars (because this is not committed).
+     * @param varName String
+     * @param value Integer
+     * @param timestamp Long
+     * @param txId String
      * @return no return
      * */
     public void write(String varName, Integer value, Long timestamp, String txId) {
@@ -161,12 +182,11 @@ public class DataManager {
                 System.out.println("promote from READ lock to WRITE lock");
             }
         }
-        // TODO check replicated variable changed to isRead > X 아닌 듯?
     }
 
     /**
      * Check whether there is a WRITE lock request waiting for the variable "varName".
-     * @params String varName
+     * @param varName String
      * @return boolean
      * */
     public boolean checkWriteLockInWaitingList(String varName) {
@@ -185,7 +205,8 @@ public class DataManager {
 
     /**
      * Check whether there is a WRITE lock request waiting for the variable "varName" other than transaction "txId"
-     * @params String varName, String txId
+     * @param varName String
+     * @param txId String
      * @return boolean
      * */
     public boolean checkOtherWriteLockInWaitingList(String varName, String txId) {
@@ -204,7 +225,10 @@ public class DataManager {
     /**
      * Add lock to the lock waiting list except when current transaction already has READ lock waiting in waiting list
      * or the same lock type is in the lock waiting list
-     * @params String varName, String txId, LockType lockType, Long timestamp
+     * @param varName String
+     * @param txId String
+     * @param lockType LockType
+     * @param timestamp Long
      * @return no return
      * */
     public void addToLockWaitingList(String varName, String txId, LockType lockType, Long timestamp) {
@@ -229,14 +253,27 @@ public class DataManager {
         lockWaitingList.put(varName, lockWaitListForVar);
     }
 
+    /**
+     * Check whether the site has variable or not
+     * @param variableName String
+     * @return boolean
+     * */
     public boolean isExistVariable(String variableName) {
         return this.variables.containsKey(variableName);
     }
 
-    // getter
+    /**
+     * Accessor for isUp
+     * No side effect
+     * @return boolean
+     */
     public boolean isUp() {return this.isUp;}
 
-    // setter
+    /**
+     * Setter for isUp
+     * @param isUp boolean
+     * @return boolean
+     */
     public boolean setIsUp(boolean isUp) {
         this.isUp = isUp;
         return this.isUp;
@@ -245,7 +282,12 @@ public class DataManager {
 
     /**
      * Check whether the transaction can hold WRITE lock or not
-     * @params String txId, String variableName, Long timestamp
+     * If transaction txId holds READ lock for the variable and there is no WRITE lock waiting in the wait list, return true
+     * If transaction txId holds WRITE lock for the variable, return true
+     * Other cases, return false
+     * @param txId String
+     * @param variableName String
+     * @param timestamp Long
      * @return boolean
      * */
     public boolean isWriteLockAvailable(String txId, String variableName, Long timestamp) {
@@ -286,6 +328,7 @@ public class DataManager {
 
     /**
      * clear te current lockTable
+     * no param and no return
      * */
     public void clearLockTable() {
         this.curLock.clear();
@@ -293,7 +336,8 @@ public class DataManager {
     }
 
     /**
-     * show all the current values of variables
+     * show all the current values of variables from the site
+     * no param and no return
      * */
     public void showVariables() {
         List<Integer> varIds = new ArrayList<>();
