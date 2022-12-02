@@ -1,3 +1,8 @@
+/**
+ * @author Yunjeon Lee, Kyu Doun Sim
+ * @date Oct 29th - Oct 29th, 2022
+ */
+
 package service;
 
 import java.io.File;
