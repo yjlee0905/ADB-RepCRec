@@ -1,7 +1,11 @@
+/**
+ * @author Yunjeon Lee, Kyu Doun Sim
+ * @date Nov 27th - Dec 1st, 2022
+ */
+
 package service;
 import model.History;
 import model.Operation;
-import model.Variable;
 import model.type.OperationType;
 import model.Transaction;
 
@@ -11,21 +15,38 @@ import java.util.stream.Collectors;
 
 public class TransactionManager {
 
+    private String inputFilePath = "";
+
     private Long timer = Long.valueOf(0);
 
     private List<DataManager> sites = new ArrayList<>();
 
-    private Map<String, Transaction> transactions = new HashMap<>(); // key: T1, value: Transaction
+    private Map<String, Transaction> transactions = new HashMap<>(); // key: txId, value: Transaction
 
     private Set<String> readOnlyTx = new HashSet<>();
 
-    // TODO operation queue, T1, T2, T1 은 어떻게 처리??
     private List<Operation> opQueue = new ArrayList<>();
 
     private Map<Integer, List<History>> failHistories = new HashMap<>(); // key: site, value: fail timestamp
 
     private DeadlockDetector detector = new DeadlockDetector();
 
+    /**
+     * Constructor of TransactionManager that takes in
+     * a inputFilepath
+     *
+     * @param inputFilepath
+     */
+    public TransactionManager(String inputFilepath) {
+        this.inputFilePath = inputFilepath;
+    }
+
+    /**
+     * initialize the program
+     *  - create 10 sites with initialization
+     *  - create keys for failHistories (key: site, value: site fail time)
+     * no param and return
+     * */
     private void init() {
         for (int i = 1; i < 11; i++) {
             DataManager newSite = new DataManager(i, timer);
@@ -37,16 +58,32 @@ public class TransactionManager {
         }
     }
 
+    /**
+     * Get parsed commands from Parser and process the operation one by one
+     * no param and return
+     * */
     public void runSimulation() {
-        Parser parser = new Parser("ADB-RepCRec/data/test1.txt");
+        Parser parser = new Parser(this.inputFilePath);
         List<List<String>> commands = parser.readAndParseCommands();
         init();
 
         for (List<String> command: commands) {
+
+            if (command.size() == 0) {
+                System.out.println("[Timestamp: " + this.timer + "]");
+                timer++;
+                continue;
+            }
+
             String operation = command.get(0);
-            // TODO implement deadlock
+
+            // When deadlock detection happens at every tick, it should be at the beginning for the tick (from instruction)
             if (detector.isDeadLock(sites, transactions)) {
-                System.out.println("Deadlock detected. " + this.timer);
+                Transaction victim = transactions.get(detector.getVictimAbortionTxID(transactions));
+                victim.setIsAborted(true);
+                System.out.println("[Timestamp: " + this.timer + "] Deadlock detected and Victim " + victim.getTxId() + " is aborted.");
+                processAbortedTx(detector.getVictimAbortionTxID(transactions));
+                processOperations();
             }
 
             if (operation.equals("begin")) {
@@ -85,9 +122,14 @@ public class TransactionManager {
 
         }
         // for debugging
-        dump();
+        // dump();
     }
 
+    /**
+     * When the transaction begins, add to transactions map (key: transaction id, value: class Transaction)
+     * @param txId String
+     * @return no return
+     * */
     private void begin(String txId) {
         if (this.transactions.containsKey(txId)) {
             System.out.println("[Timestamp: " + this.timer + "] " + txId + " has been already started.");
@@ -98,6 +140,12 @@ public class TransactionManager {
         System.out.println("[Timestamp: " + this.timer + "] Transaction " + txId + " begins.");
     }
 
+    /**
+     * When the read-only transaction begins, add to transactions map (key: transaction id, value class Transaction)
+     * Add to read-only transaction set
+     * @param txId String
+     * @return no return
+     * */
     private void beginRO(String txId) {
         if (this.transactions.containsKey(txId)) {
             System.out.println("[Timestamp: " + this.timer + "] " + txId + " has been already started.");
@@ -109,6 +157,12 @@ public class TransactionManager {
         System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + txId + " begins.");
     }
 
+    /**
+     * When the transaction requires READ operation, add to operation queue
+     * @param txId String,
+     * @param variableName String
+     * @return no return
+     * */
     private void read(String txId, String variableName) {
         if (!this.transactions.containsKey(txId)) {
             System.out.println("[Timestamp: " + this.timer + "] Transaction " + txId + " does not exists and cannot start read operation.");
@@ -119,6 +173,13 @@ public class TransactionManager {
         this.opQueue.add(op);
     }
 
+    /**
+     * When the transaction requires WRITE operation, add to operation queue
+     * @param txId String
+     * @param variableName String
+     * @param value Integer
+     * @return no return
+     * */
     private void write(String txId, String variableName, Integer value) {
         if (!this.transactions.containsKey(txId)) {
             System.out.println("[Timestamp: " + this.timer + "] Transaction " + txId + " does not exists and cannot start write operation.");
@@ -129,6 +190,11 @@ public class TransactionManager {
         this.opQueue.add(op);
     }
 
+    /**
+     * decides the transaction whether it should be aborted or committed and process the transaction
+     * @param txId String
+     * @return no return
+     * */
     private void end(String txId) {
         if (!this.transactions.containsKey(txId)) {
             System.out.println("[Timestamp: " + this.timer + "] " + txId + " does not exist and cannot end this transaction.");
@@ -137,7 +203,7 @@ public class TransactionManager {
 
         Transaction transaction = this.transactions.get(txId);
         if (transaction.isAborted()) {
-            System.out.println("[Timestamp: " + this.timer + "] " + txId + " is aborted.");
+            System.out.println("[Timestamp: " + this.timer + "] " + txId + " is aborted, because site is failed.");
             processAbortedTx(txId);
         } else { // commit
             System.out.println("[Timestamp: " + this.timer + "] " + txId + " is committed.");
@@ -145,6 +211,13 @@ public class TransactionManager {
         }
     }
 
+    /**
+     * When the site: siteId fails, set isUp attribute in DataManager(site) to false, and erase the lock table (lock information disappears when site is failed)
+     * If there is a transaction that visited the site: siteId before it fails, that transaction should be aborted so set isAborted = true for the transaction.
+     * Add this fail event to fail histories.
+     * @param siteId Integer
+     * @return no return
+     * */
     private void fail(Integer siteId) {
         System.out.println("[Timestamp: " + this.timer + "] Site: " + siteId + " fails.");
         this.sites.get(siteId-1).setIsUp(false);
@@ -163,44 +236,83 @@ public class TransactionManager {
         failHistories.put(siteId, siteFailHistories);
     }
 
+    /**
+     * When the site: siteId recovers, set isUp attribute in DataManager(site) to true,
+     * and set isRead to false at replicated variables in the site.
+     * @param siteId Integer
+     * @return no return
+     * */
     private void recover(Integer siteId) {
         System.out.println("[Timestamp: " + this.timer + "] Site: " + siteId + " is recovered.");
         DataManager site = this.sites.get(siteId-1);
         site.setIsUp(true);
         site.setVariablesIsRead(false);
-        // 이후에 write가 한번 발생하면 그 때는 read가 가능해진다. from test3.5 comment
+        // from test 3.5 comment, this values can be readable after write operation occurs.
     }
 
+    /**
+     * show the values of all the variables in all the sites
+     * no parameters and no returns
+     * */
     private void dump() {
         System.out.println("[Timestamp: " + this.timer + "] Dump");
         for (DataManager site: this.sites) {
-            System.out.print("Site " + site.getId() + " - ");
+            System.out.print("Site " + site.getId() + ", Status: ");
+            if (site.isUp()) {
+                System.out.print("Up, - ");
+            } else {
+                System.out.print("Down, - ");
+            }
             site.showVariables();
             System.out.println();
         }
     }
 
-    /*
+    /**
+     * When transaction is aborted, we should release lock from lock table and remove the lock with txId in lock waiting list.
+     * And remove the transaction from transactions map and operation queue.
      * Transaction aborted case
      * 1) deadlock detection
      * 2) site fails
+     * @param txId String
+     * @return no return
      * */
     private void processAbortedTx(String txId) {
         for (DataManager site: sites) {
-            site.clearTxId(txId);
+            site.clearTxId(txId, timer);
+            site.clearTxIdFromLockWaitingList(txId);
         }
         transactions.remove(txId);
-        // temp 초기화?
+
+        // remove operations that occurred by txId
+        List<Operation> toBeRemoved = new ArrayList<>();
+        for (Operation operation: opQueue) {
+            if (operation.getTxId().equals(txId)) {
+                toBeRemoved.add(operation);
+            }
+        }
+        opQueue.removeAll(toBeRemoved);
     }
 
+    /**
+     * When transaction is committed, temporary values written from WRITE request (which is no committed yet) should be written to the value
+     * and should release lock from lock table.
+     * And remove the transaction from transaction map
+     * @param txId String
+     * @return no return
+     * */
     private void processCommitTx(String txId) {
-        // TODO split into temp and commit value?
         for (DataManager site: sites) {
             site.processCommit(txId, timer);
         }
         transactions.remove(txId);
     }
 
+    /**
+     * process the operations in the operation queue and remove the operation when the operation is processed successfully.
+     * operation type: read, read-only, write
+     * no param and no return
+     * */
     private void processOperations() {
         List<Operation> toBeRemoved = new ArrayList<>();
 
@@ -213,20 +325,22 @@ public class TransactionManager {
             }
             else if (op.getOperationType().equals(OperationType.READ) && readOnlyTx.contains(op.getTxId())) {
                 // read-only transaction
+                System.out.print("[Timestamp: " + this.timer + "] ");
                 Integer result = processReadOnly(op.getTxId(), op.getVarName());
                 if (result == null) {
-                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " fails to read.");
+                    //transactions.get(op.getTxId()).setIsAborted(true);
+                    System.out.println("Read-only Transaction " + op.getTxId() + " fails to read.");
                 } else {
-                    System.out.println("[Timestamp: " + this.timer + "] Read-only Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
+                    System.out.println("Read-only Transaction " + op.getTxId() + " successfully reads the data, " + op.getVarName() + ": " + result);
                     toBeRemoved.add(op);
                 }
             } else if (op.getOperationType().equals(OperationType.READ)) {
-                //TODO read transaction
+                System.out.print("[Timestamp: " + this.timer + "] ");
                 Integer result = processRead(op.getTxId(), op.getVarName());
                 if (result == null) {
-                    System.out.println("[Timestamp: " + this.timer + "] Read fails");
+                    System.out.println("Read Transaction " + op.getTxId() + " fails to read.");
                 } else {
-                    System.out.println("[Timestamp: " + this.timer + "] Read Transaction " + op.getTxId() + " successfully reads the data, variable: " + op.getVarName() + ", value: " + result);
+                    System.out.println("Read Transaction " + op.getTxId() + " successfully reads the data, " + op.getVarName() + ": " + result);
                     toBeRemoved.add(op);
                 }
             }
@@ -235,6 +349,14 @@ public class TransactionManager {
         opQueue.removeAll(toBeRemoved);
     }
 
+    /**
+     * For the sites that are up and has the variable, we do the read operation.
+     * When we can read the value of variable from the sites returns the value,
+     * but if not return null.
+     * @param txId String
+     * @param variableName String
+     * @return Integer, the value of variableName read from available site
+     * */
     private Integer processRead(String txId, String variableName) {
         List<DataManager> targets = this.sites.stream()
                 .filter(s -> s.isUp() && s.isExistVariable(variableName))
@@ -247,18 +369,33 @@ public class TransactionManager {
 
         Transaction currentTx = transactions.get(txId);
         Integer readResult = null;
+        Integer siteId = null;
         for (DataManager target: targets) {
-            Integer resultFromSite = target.read(variableName, txId);
+            Integer resultFromSite = target.read(variableName, txId, timer);
             // currentTx.addVisitedSites(target.getId()); // TODO read는 언제를 site visit으로 보는지
 //            if (readResult != null) return readResult; // TODO read는 replicated의 경우 하나만 유효하면 바로 읽으면 되는지 그렇다면 visited는 어떻게 판별?
             if (resultFromSite != null) {
-                currentTx.addVisitedSites(target.getId());
+                currentTx.addSitesVisited(target.getId());
                 readResult = resultFromSite;
+                if (siteId == null) siteId = target.getId();
             }
+        }
+        if (siteId != null) {
+            System.out.print("From site: " + siteId + ", ");
         }
         return readResult;
     }
 
+    /**
+     * For the sites that are up and has the variable, we do the read-only operation.
+     * Since read-only transaction does not need lock,
+     * if variable is not replicated, return the last value committed before starting of the read-only transaction value directly,
+     * if variable is replicated, if there is no fail history between last commit and starting of the read-only transaction, return the value.
+     * If there is no corresponding value for the variable, return null
+     * @param txId String
+     * @param variableName String
+     * @return Integer
+     * */
     private Integer processReadOnly(String txId, String variableName) {
         Integer snapshot = null;
         Long readOnlyStartTime = transactions.get(txId).getTimestamp();
@@ -266,11 +403,25 @@ public class TransactionManager {
         for (DataManager site: sites) {
             if (!site.isUp() || !site.isExistVariable(variableName)) continue;
             snapshot = site.getSnapshot(variableName, readOnlyStartTime, failHistories.get(site.getId()));
-            if (snapshot != null) return snapshot;
+            if (snapshot != null) {
+                System.out.print("From site: " + site.getId() + ", ");
+                return snapshot;
+            }
         }
         return snapshot;
     }
 
+    /**
+     * For the sites that are up and has the variable, we do the write operation.
+     * Within the WRITE operation, if there is at least 1 site that cannot get the write lock, the operation should wait for the lock.
+     * When all the sites are available of holding the WRITE lock, we can write to temporary value(because the value is not committed yet) and add visited sites for the transaction.
+     * If write lock conflict occurs and cannot do WRITE operation, return null
+     * @param txId String
+     * @param variableName String
+     * @param value Integer
+     * @param op Operation
+     * @return Operation if write operation is completed, if not return null
+     * */
     private Operation processWrite(String txId, String variableName, Integer value, Operation op) {
         // select write target sites
         List<DataManager> targets = this.sites.stream()
@@ -284,20 +435,22 @@ public class TransactionManager {
 
         // if there is a one site that cannot get write lock, wait
         for (DataManager target: targets) {
-            if (!target.isWriteLockAvailable(txId, variableName)) {
+            if (!target.isWriteLockAvailable(txId, variableName, timer)) {
                 System.out.println("[Timestamp: " + this.timer + "] " + txId + " waits because of the write lock conflict in site: " + target.getId());
-                target.updateWriteLockWaitingList(variableName, value,this.timer, txId);
+                //target.updateWriteLockWaitingList(variableName, value,this.timer, txId);
                 return null;
             }
         }
 
         // write variables
         Transaction currentTx = transactions.get(txId);
+        String sites = "";
         for (DataManager target: targets) {
             target.write(variableName, value, this.timer, txId);
-            currentTx.addVisitedSites(target.getId());
+            sites += target.getId() + ", ";
+            currentTx.addSitesVisited(target.getId());
         }
-        System.out.println("[Timestamp: " + this.timer + "] " + txId + " writes variable: " + variableName + "=" + value);
+        System.out.println("[Timestamp: " + this.timer + "] " + txId + " writes variable: " + variableName + "=" + value + " to site: " + sites);
         return op;
     }
 }

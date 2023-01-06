@@ -1,3 +1,8 @@
+/**
+ * @author Yunjeon Lee, Kyu Doun Sim
+ * @date Nov 27th - Dec 1st, 2022
+ */
+
 import service.Parser;
 import service.TransactionManager;
 
@@ -7,7 +12,9 @@ import java.util.List;
 public class Test {
 
     public static void main(String[] args) {
-        TransactionManager txManager = new TransactionManager();
+        String inputFilepath = args[0];
+
+        TransactionManager txManager = new TransactionManager(inputFilepath);
         txManager.runSimulation();
 
 //        Parser parser = new Parser("data/test20.txt");

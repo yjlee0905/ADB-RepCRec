@@ -1,3 +1,8 @@
+/**
+ * @author Yunjeon Lee, Kyu Doun Sim
+ * @date Nov 27th - Dec 1st, 2022
+ */
+
 package service;
 
 import model.History;
@@ -14,16 +19,18 @@ public class DataManager {
 
     private Map<String, LockTable> curLock = new HashMap<>(); // key: variable, value: LockTable
 
-    private Map<String, List<Lock>> lockWaitingList = new HashMap<>(); // key: variable, value: currently, first TxId has lock
+    // locks are acquired in first-come-first-serve fashion
+    private Map<String, List<Lock>> lockWaitingList = new HashMap<>(); // key: variable, value: lock waiting list for the variable
 
     private boolean isUp;
 
-    private Map<String, Variable> variables = new HashMap<>(); // commited value
+    private Map<String, Variable> variables = new HashMap<>(); // committed value
 
-    private Map<String, Variable> tempVars = new HashMap<>(); // key: variable, value: Variable
+    private Map<String, Variable> tempVars = new HashMap<>(); // key: variable, value: Variable, values that are not committed yet
 
     private Map<String, List<History>> commitHistories = new HashMap<>(); // key: variable
 
+    // initialize site in constructor
     public DataManager(Integer id, Long time) {
         this.id = id;
         this.isUp = true;
@@ -63,25 +70,49 @@ public class DataManager {
         }
     }
 
+    /**
+     * Accessor for site ID
+     * No side effect
+     * @return Integer
+     */
     public Integer getId() {return this.id;}
 
+    /**
+     * Accessor for current lock table
+     * No side effect
+     * @return Map<String, LockTable>
+     */
     public Map<String, LockTable> getCurLock() { return curLock;}
 
+    /**
+     * Accessor for lock waiting list
+     * No side effect
+     * @return Map<String, List<Lock>>
+     */
     public Map<String, List<Lock>> getLockWaitingList() {return this.lockWaitingList;}
 
-
-//    public Integer read(String varName) {
-//        return variables.get(varName).getValue();
-//    }
-
-    public Integer read(String varName, String txId) {
+    /**
+     * This method process READ operation
+     * If the variable is not readable because of the site down, return null
+     * If there is no lock for variable or the transaction already holds READ lock of the variable, we can read the value directly.
+     * If current lock for variable is READ lock and there is no WRITE lock waiting in the wait list, transaction txId can hold READ lock and read the value,
+     * but if there is a WRITE lock waiting in the wait list, transaction txId should wait.
+     * If transaction txId already holds WRITE lock for the variable, we can read temporary value which is not committed yet.
+     * If other transaction holds WRITE lock for the variable, the READ transaction txId should wait.
+     * @param varName String
+     * @param txId String
+     * @param timestamp Long
+     * @return value read from the site, return null if READ operation is not possible
+     * */
+    public Integer read(String varName, String txId, Long timestamp) {
         Variable variable = variables.get(varName);
         if (!variable.canRead()) {
+            System.out.println("Site: " + id + " was down and is just recovered, so the value cannot be read at this time.");
             return null;
         }
 
-        if (!curLock.containsKey(varName)) {
-            Lock readLock = new Lock(txId, varName, LockType.READ);
+        if (!curLock.containsKey(varName) || curLock.get(varName).getCurLock() == null) {
+            Lock readLock = new Lock(txId, varName, LockType.READ, timestamp);
             HashSet<String> readLocks = new HashSet<>();
             readLocks.add(txId);
             LockTable lockTable = new LockTable(readLock, readLocks);
@@ -94,11 +125,20 @@ public class DataManager {
             if (curLock.get(varName).isTxHoldReadLock(txId)) {
                 return variable.getValue();
 
-                // TODO need write lock check
             } else {
-                LockTable curLockTable = curLock.get(varName);
-                curLockTable.setReadLock(txId);
-                return variable.getValue();
+                // TODO need write lock check
+                if (checkWriteLockInWaitingList(varName)) {
+                    addToLockWaitingList(varName, txId, LockType.READ, timestamp);
+                    System.out.println("Read lock conflict at site: " + id);
+                    return null;
+                } else {
+                    LockTable curLockTable = curLock.get(varName);
+                    if (curLockTable.getCurLock().getLockType().equals(LockType.READ)) {
+                        curLockTable.setReadLock(txId);
+                    }
+                    return variable.getValue();
+                }
+
             }
 
         } else if (curLockForVar.getLockType().equals(LockType.WRITE)) {
@@ -106,26 +146,28 @@ public class DataManager {
                 // read temp value
                 return variables.get(varName).versionedVal.get(txId);
             } else {
-                // TODO add lock queue
-                // updateWriteLockWaitingList(varName, );
+                addToLockWaitingList(varName, txId, LockType.READ, timestamp);
+                System.out.println("Read lock conflict at site: " + id);
                 return null;
             }
         }
-
-//        // TODO shared lock in OH
-//        if (!curLock.containsKey(varName) ||
-//                (curLock.get(varName).equals(txId)) && curLock.get(varName).getCurLock().getLockType().equals(LockType.READ)) {
-//            Lock readLock = new Lock(txId, varName, LockType.READ);
-//            curLock.put(varName, readLock);
-//            return variable.getValue();
-//        }
-
         return null;
     }
 
+    /**
+     * This method process WRITE operation
+     * If there is no current lock for variable or the transaction txId already holds WRITE lock for the variable, write the value to tempVars (because this is not committed).
+     * If the transaction txId holds READ lock for the variable and there is no other WRITE lock waiting for the variable,
+     * promote the READ lock to WRITE lock and write the value to tempVars (because this is not committed).
+     * @param varName String
+     * @param value Integer
+     * @param timestamp Long
+     * @param txId String
+     * @return no return
+     * */
     public void write(String varName, Integer value, Long timestamp, String txId) {
-        if (!curLock.containsKey(varName) || curLock.get(varName) == null) {
-            Lock lock = new Lock(txId, varName, LockType.WRITE);
+        if (!curLock.containsKey(varName) || curLock.get(varName) == null || curLock.get(varName).getCurLock() == null) {
+            Lock lock = new Lock(txId, varName, LockType.WRITE, timestamp);
             LockTable lockTable = new LockTable(lock);
             curLock.put(varName, lockTable);
 
@@ -134,44 +176,174 @@ public class DataManager {
         } else if (curLock.get(varName).getCurLock().getLockType().equals(LockType.WRITE) && curLock.get(varName).getCurLock().getTxId().equals(txId)) {
             Variable var = tempVars.get(varName);
             var.setTempValueWithTxId(txId, value);
-        } else {
-            System.out.println("promote read to write");
-        }
-        // TODO check replicated variable changed to isRead > X 아닌 듯?
-    }
+        } else if (curLock.get(varName).getCurLock().getLockType().equals(LockType.READ)) {
+            LockTable lockInfo = curLock.get(varName);
+            HashSet<String> curReadLocks = lockInfo.getReadLocks();
 
-    public void updateWriteLockWaitingList(String varName, Integer value, Long timestamp, String txId) {
-        Lock targetLock = new Lock(txId, varName, LockType.WRITE);
-        if (lockWaitingList.containsKey(varName)) {
-            lockWaitingList.get(varName).add(targetLock);
-        } else {
-            List<Lock> locks = new ArrayList<>();
-            locks.add(targetLock);
-            lockWaitingList.put(varName, locks);
+            if (curReadLocks.size() == 1 && curReadLocks.contains(txId) && !checkOtherWriteLockInWaitingList(varName, txId)) {
+                lockInfo.promoteFromReadLockToWriteLock(varName, txId, timestamp);
+                Variable var = tempVars.get(varName);
+                var.setTempValueWithTxId(txId, value);
+                System.out.println("promote from READ lock to WRITE lock");
+            }
         }
     }
 
+    /**
+     * Check whether there is a WRITE lock request waiting for the variable "varName".
+     * @param varName String
+     * @return boolean
+     * */
+    public boolean checkWriteLockInWaitingList(String varName) {
+        List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
+
+        if (lockWaitListForVar == null) return false;
+
+        for (Lock lock: lockWaitListForVar) {
+            if (lock.getLockType().equals(LockType.WRITE)) {
+                return true;
+            }
+        }
+        return false;
+
+    }
+
+    /**
+     * Check whether there is a WRITE lock request waiting for the variable "varName" other than transaction "txId"
+     * @param varName String
+     * @param txId String
+     * @return boolean
+     * */
+    public boolean checkOtherWriteLockInWaitingList(String varName, String txId) {
+        List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
+
+        if (lockWaitListForVar == null) return false;
+
+        for (Lock lock: lockWaitListForVar) {
+            if (lock.getLockType().equals(LockType.WRITE) && !lock.getTxId().equals(txId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Add lock to the lock waiting list except when current transaction already has READ lock waiting in waiting list
+     * or the same lock type is in the lock waiting list
+     * @param varName String
+     * @param txId String
+     * @param lockType LockType
+     * @param timestamp Long
+     * @return no return
+     * */
+    public void addToLockWaitingList(String varName, String txId, LockType lockType, Long timestamp) {
+        List<Lock> lockWaitListForVar = lockWaitingList.get(varName);
+
+        if (lockWaitListForVar == null) {
+            Lock newLock = new Lock(txId, varName, lockType, timestamp);
+            List<Lock> newLockWaitList = new ArrayList<>();
+            newLockWaitList.add(newLock);
+            lockWaitingList.put(varName, newLockWaitList);
+            return;
+        }
+
+        for (Lock lock: lockWaitListForVar) {
+            if (lock.getTxId().equals(txId) && (lock.getLockType().equals(lockType)) || lock.getLockType().equals(LockType.READ)) {
+                return;
+            }
+        }
+
+        Lock newLock = new Lock(txId, varName, lockType, timestamp);
+        lockWaitListForVar.add(newLock);
+        lockWaitingList.put(varName, lockWaitListForVar);
+    }
+
+    /**
+     * Check whether the site has variable or not
+     * @param variableName String
+     * @return boolean
+     * */
     public boolean isExistVariable(String variableName) {
         return this.variables.containsKey(variableName);
     }
 
+    /**
+     * Accessor for isUp
+     * No side effect
+     * @return boolean
+     */
     public boolean isUp() {return this.isUp;}
 
+    /**
+     * Setter for isUp
+     * @param isUp boolean
+     * @return boolean
+     */
     public boolean setIsUp(boolean isUp) {
         this.isUp = isUp;
         return this.isUp;
     }
 
-    public boolean isWriteLockAvailable(String txId, String variableName) {
-        if (!this.curLock.containsKey(variableName) || this.curLock.get(variableName) == null) return true;
+
+    /**
+     * Check whether the transaction can hold WRITE lock or not
+     * If transaction txId holds READ lock for the variable and there is no WRITE lock waiting in the wait list, return true
+     * If transaction txId holds WRITE lock for the variable, return true
+     * Other cases, return false
+     * @param txId String
+     * @param variableName String
+     * @param timestamp Long
+     * @return boolean
+     * */
+    public boolean isWriteLockAvailable(String txId, String variableName, Long timestamp) {
+        if (!this.curLock.containsKey(variableName) || this.curLock.get(variableName).getCurLock() == null) return true;
+
+        LockTable lockForVar = curLock.get(variableName);
+        Lock currentLockForVar = lockForVar.getCurLock();
+
+        if (currentLockForVar.getLockType().equals(LockType.READ)) {
+            if (lockForVar.getReadLocks().size() > 1) {
+                // add to lock waiting list
+                addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
+                return false;
+            } else {
+                if (lockForVar.getReadLocks().contains(txId)) {
+                    if (!checkOtherWriteLockInWaitingList(variableName, txId)) {
+                        return true;
+                    } else {
+                        addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
+                        return false;
+                    }
+                } else {
+                    // add to lock waiting list
+                    addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
+                    return false;
+                }
+            }
+        } else if (currentLockForVar.getLockType().equals(LockType.WRITE)) {
+            if (currentLockForVar.getTxId().equals(txId)) {
+                return true;
+            } else {
+                addToLockWaitingList(variableName, txId, LockType.WRITE, timestamp);
+                return false;
+            }
+        }
         return false;
     }
 
+    /**
+     * clear te current lockTable
+     * no param and no return
+     * */
     public void clearLockTable() {
         this.curLock.clear();
         //this.lockWaitingList.clear();
     }
 
+    /**
+     * show all the current values of variables from the site
+     * no param and no return
+     * */
     public void showVariables() {
         List<Integer> varIds = new ArrayList<>();
         for (String varName: this.variables.keySet()) {
@@ -185,9 +357,15 @@ public class DataManager {
         }
     }
 
+    /**
+     * update the value of variable from the tempVars and add to commit history.
+     * after that, remove the lock triggered by txId in lock table and update the current lock.
+     * @param txId String
+     * @param timestamp Long
+     * @return no return
+     * */
     public void processCommit(String txId, Long timestamp) {
         for (String varName: tempVars.keySet()) {
-            // 여기서 versionedVal 봐야함
             Variable variable = tempVars.get(varName);
             Map<String, Integer> versionedVal = variable.versionedVal;
 
@@ -207,16 +385,105 @@ public class DataManager {
                     commitHistories.put(varName, commitHistory);
                 }
             }
+
+            // temporary value remove
+            versionedVal.keySet().removeIf(key -> key.equals(txId));
         }
 
-        clearTxId(txId);
+        clearTxId(txId, timestamp);
+
+        // TODO update lock table
+        // updateCurLock(timestamp);
     }
 
-    public void clearTxId(String txId) {
+    /**
+     * release lock with txId : if transaction has READ lock, also release the shared lock
+     * after release, take next lock in the lock waiting list
+     * @param txId String
+     * @param timestamp Long
+     * @return no return
+     * */
+    public void clearTxId(String txId, Long timestamp) {
         // remove current lock for txId
-        curLock.entrySet().removeIf(entry -> entry.getValue().getCurLock().getTxId().equals(txId));
+        //curLock.entrySet().removeIf(entry -> entry.getValue().getCurLock().getTxId().equals(txId));
 
-        // remove transaction from lock wait list
+        for (String varName: curLock.keySet()) {
+            LockTable lockTable = curLock.get(varName);
+
+            if (lockTable.getCurLock() == null) continue;
+
+            Lock currentLock = lockTable.getCurLock();
+            if (currentLock.getLockType() == LockType.WRITE && currentLock.getTxId().equals(txId)) {
+                //System.out.println(id + "     " + txId + "before: " + lockTable.getCurLock());
+                lockTable.setCurLock(null);
+                //System.out.println(id + "     " + txId + "after: " + lockTable.getCurLock());
+
+            } else if (currentLock.getLockType() == LockType.READ) {
+                lockTable.releaseReadLock(txId);
+                if (lockTable.getReadLocks() == null || lockTable.getReadLocks().size() == 0 || lockTable.getReadLocks().isEmpty()) {
+                    lockTable.setCurLock(null);
+                }
+            }
+        }
+
+        // TODO update locktable
+        updateCurLock(timestamp);
+    }
+
+    /**
+     * take next lock waiting in the waiting list, and set this next lock to the current lock
+     * (WRITE for exclusive lock, READ for shared read lock)
+     * If there is only one shared read lock with transaction A and transaction A needs WRITE lock, the lock is promoted to WRITE lock.
+     * @param timestamp Long
+     * @return no return
+     * */
+    private void updateCurLock(Long timestamp) {
+        for (String varName: curLock.keySet()) {
+            if (curLock.get(varName).getCurLock() != null || lockWaitingList.get(varName) == null || lockWaitingList.get(varName).size() == 0) continue;
+            Lock firstWaitingLock = lockWaitingList.get(varName).get(0);
+            lockWaitingList.get(varName).remove(firstWaitingLock);
+
+            if (firstWaitingLock.getLockType().equals(LockType.READ)) {
+                curLock.get(varName).setReadLock(firstWaitingLock.getTxId());
+                curLock.get(varName).setCurLock(firstWaitingLock);
+            } else if (firstWaitingLock.getLockType().equals(LockType.WRITE)) {
+                curLock.get(varName).setCurLock(firstWaitingLock);
+            }
+
+            if (firstWaitingLock.getLockType().equals(LockType.READ) && lockWaitingList.get(varName).size() > 0) {
+                List<Lock> lockWaiting = lockWaitingList.get(varName);
+                List<Lock> toBeRemoved = new ArrayList<>();
+                Lock nextLock = lockWaiting.get(0);
+                for (int i = 0; i < lockWaiting.size(); i++) {
+                    nextLock = lockWaiting.get(i);
+                    if (nextLock.getLockType().equals(LockType.READ)) {
+                        // add to read lock
+                        curLock.get(varName).setReadLock(nextLock.getTxId());
+                        // remove nextLock
+                        toBeRemoved.add(nextLock);
+                    } else {
+                        break;
+                    }
+                }
+                lockWaiting.removeAll(toBeRemoved);
+
+                if (curLock.get(varName).getReadLocks().size() == 1 && curLock.get(varName).getReadLocks().contains(nextLock.getTxId())) {
+                    // promote
+                    curLock.get(varName).promoteFromReadLockToWriteLock(varName, nextLock.getTxId(), timestamp);
+                    lockWaiting.remove(0);
+                }
+                lockWaitingList.put(varName, lockWaiting);
+
+            }
+        }
+    }
+
+    /**
+     * remove transaction from lock wait list
+     * @param txId String
+     * @return no return
+     * */
+    public void clearTxIdFromLockWaitingList(String txId) {
         for (String varName: lockWaitingList.keySet()) {
             List<Lock> toBeRemoved = new ArrayList<>();
             for (Lock lock: lockWaitingList.get(varName)) {
@@ -228,58 +495,62 @@ public class DataManager {
         }
     }
 
-    public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistory) {
+
+    /**
+     * This function is for read-only transaction.
+     * Get values of varName that has valid committed value before read-only transaction starts.
+     * For the non-replicated variable, get the value of last commit before the read-only transaction starts.
+     * For the replicated variable, get the value of last commit before the read-only transaction starts when there is no fail history between them.
+     * If there is no suitable snapshot value at this time, return null
+     * @param varName String
+     * @param readOnlyStartTime Long
+     * @param failHistories List<History>
+     * @return Integer, value of the variable within the snapshot from read-only transaction start time
+     * */
+    public Integer getSnapshot(String varName, Long readOnlyStartTime, List<History> failHistories) {
         // TODO works, but need to check during OH
         Variable variable = variables.get(varName);
-        if (variable.canRead()) {
-            List<History> variableHistory = commitHistories.get(varName);
-            Collections.reverse(variableHistory);
 
-            if (!variable.isReplicated()) {
-                for (History history: variableHistory) {
-                    if (history.getTimestamp() <= readOnlyStartTime) {
-                        return history.getSnapshotValue();
-                    }
-                }
-                return null;
-            } else { // replicated
-                if (failHistory == null || failHistory.size() == 0) {
-                    return variable.getValue();
-                }
+        List<History> variableHistory = commitHistories.get(varName);
+        Collections.reverse(variableHistory);
 
-                History lastCommit = commitHistories.get(varName).get(0);
-                if (lastCommit.getTimestamp() <= failHistory.get(0).getTimestamp() && failHistory.get(0).getTimestamp() <= readOnlyStartTime) {
-                    return null;
-                } else {
-                    return lastCommit.getSnapshotValue();
+        if (!variable.isReplicated()) {
+            for (History history: variableHistory) {
+                if (history.getTimestamp() <= readOnlyStartTime) {
+                    return history.getSnapshotValue();
                 }
-//                for (History failHis: failHistory) {
-//                    if (lastCommit.getTimestamp() <= failHis.getTimestamp() && failHis.getTimestamp() <= readOnlyStartTime) {
-//                        return null;
-//                    }
-//                }
             }
-        }
-        return null;
-
-//            for (History history: variableHistory) { // TODO check whether last or all, last부터 check?
-//                if (!variable.isReplicated()) {
-//                    if (history.getTimestamp() <= readOnlyStartTime) {
-//                        return history.getSnapshotValue();
-//                    }
-//                    return null;
-//                } else { // replicated TODO implement
-//                    if (failHistory == null || failHistory.size() == 0)
-//                        return snapshot.getValue();
-//                    for (History failHis: failHistory) {
-//                        if (failHis.getTimestamp() <= readOnlyStartTime)
-//                            return null;
-//                    }
-//                    return snapshot.getValue();
-//                }
+            return null;
+        } else { // replicated
+//            if (failHistories == null || failHistories.size() == 0) {
+//                return variable.getValue();
 //            }
+
+            // History lastCommit = commitHistories.get(varName).get(0);
+            History lastCommit = null;
+            for (History varHistory: variableHistory) {
+                if (varHistory.getTimestamp() <= readOnlyStartTime) {
+                    lastCommit = varHistory;
+                    break;
+                }
+            }
+            if (lastCommit == null) return null;
+            // if (lastCommit.getTimestamp() > readOnlyStartTime) return null;
+            for (History failHistory: failHistories) {
+                if (lastCommit.getTimestamp() <= failHistory.getTimestamp() && failHistory.getTimestamp() <= readOnlyStartTime) {
+                    return null;
+                }
+            }
+            return lastCommit.getSnapshotValue();
+
+        }
     }
 
+    /**
+     * set isRead for all the variables
+     * @param isRead boolean
+     * @return no return
+     * */
     public void setVariablesIsRead(boolean isRead) {
         for (String varName: variables.keySet()) {
             Variable variable = variables.get(varName);

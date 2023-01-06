@@ -1,21 +1,48 @@
+/**
+ * @author Yunjeon Lee, Kyu Doun Sim
+ * @date Nov 27th - Dec 1st, 2022
+ */
+
 package service;
 
 import model.Lock;
 import model.LockTable;
 import model.Transaction;
-import model.Variable;
 
-import javax.xml.crypto.Data;
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class DeadlockDetector {
-    Map<Transaction, List<Lock>> transactionLockMap = new HashMap<>();
     List<String> victimSiteList = new ArrayList<>();
 
+    /**
+     * A helper function to determine if a target Lock has the same timestamp
+     * as the locks inside the combinedLockQforVar, timestamp is used as id because there is always only 1 operation at a time.
+     * No side effects.
+     * @param combinedLockQforVar
+     * @param target
+     * @return boolean if the combinedLockQforVar has the same lock with target
+     */
+    private boolean isLockIncluded(List<Lock> combinedLockQforVar, Lock target) {
+        if (combinedLockQforVar == null || combinedLockQforVar.size() == 0) return false;
+
+        for (Lock curLock: combinedLockQforVar) {
+            if (curLock.getTimestamp().equals(target.getTimestamp())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A function that will iterate through all the sites to detect a deadlock
+     * No side effects, will not modify any state outside the scope.
+     *
+     * @param sites
+     * @param transactions
+     * @return boolean if there is a deadlock in the sites
+     */
     public boolean isDeadLock(List<DataManager> sites, Map<String, Transaction> transactions) {
-        transactionLockMap.clear();
         victimSiteList.clear();
 
         // get target sites
@@ -34,6 +61,7 @@ public class DeadlockDetector {
 //        just storing the String of the TxID does not give a null pointer when printed
         // Map of <variable name(x1, x2...), List<String>>
         // example <x1:[T1, T2], x2:[T2, T1]>
+        Map<String, List<Lock>> combinedLockQ = new HashMap<>();
         Map<String, List<String>> combinedQ = new HashMap<>();
 
         // add all the acquired locks
@@ -44,12 +72,19 @@ public class DeadlockDetector {
                 for (Map.Entry<String, LockTable> entry : dataManager.getCurLock().entrySet()) {
                     if(!combinedQ.containsKey(entry.getKey())) {
                         combinedQ.put(entry.getKey(), new ArrayList<>());
+                        combinedLockQ.put(entry.getKey(), new ArrayList<>());
                     }
 
-                    if(combinedQ.get(entry.getKey()).contains(entry.getValue().getCurLock().getTxId())) {
+                    if (entry.getValue().getCurLock() == null) continue;
+
+                    if (isLockIncluded(combinedLockQ.get(entry.getKey()), entry.getValue().getCurLock())) {
                         continue;
                     }
+//                    if(combinedLockQ.get(entry.getKey()).contains(entry.getValue().getCurLock().getTimestamp())) {
+//                        continue;
+//                    }
                     combinedQ.get(entry.getKey()).add(entry.getValue().getCurLock().getTxId());
+                    combinedLockQ.get(entry.getKey()).add(entry.getValue().getCurLock());
                 }
             }
         });
@@ -63,10 +98,14 @@ public class DeadlockDetector {
             if(!lockQueue.isEmpty()) {
                 for (Map.Entry<String, List<Lock>> entry : lockQueue.entrySet()) {
                     for(Lock singleLock : entry.getValue()) {
-                        if(combinedQ.get(entry.getKey()).contains(singleLock.getTxId())) {
+                        if (isLockIncluded(combinedLockQ.get(entry.getKey()), singleLock)) {
                             continue;
                         }
+//                        if(combinedQ.get(entry.getKey()).contains(singleLock.getTxId())) {
+//                            continue;
+//                        }
                         combinedQ.get(entry.getKey()).add(singleLock.getTxId());
+                        combinedLockQ.get(entry.getKey()).add(singleLock);
                     }
                 }
             }
@@ -77,20 +116,35 @@ public class DeadlockDetector {
         // if T1 needs a lock on item x, T2 has a conflicting lock on x
         // or T2 is ahead of T1 on the wait queue for x and T2 seeks
         // a conflicting lock on x
+        HashSet<String> allTransactions = new HashSet<>();
+        for (String varName: combinedQ.keySet()) {
+            List<String> waitList = combinedQ.get(varName);
+            for (String txId: waitList) {
+                allTransactions.add(txId);
+            }
+        }
+
         Map<String, List<String>> blockGraph = new HashMap<>();
+        for (String txId: allTransactions) {
+            blockGraph.put(txId, new ArrayList<>());
+        }
 
-        for(Map.Entry<String, List<String>> entry: combinedQ.entrySet()) {
+        for(Map.Entry<String, List<String>> variable: combinedQ.entrySet()) {
 
-            List<String> waitList = entry.getValue();
+            List<String> waitList = variable.getValue();
 
             if(waitList.size() == 1) {
                 continue;
             }
 
             for(int i = 1; i < waitList.size(); ++i) {
-                if(!blockGraph.containsKey(waitList.get(i))) {
-                    blockGraph.put(waitList.get(i) , new ArrayList<>());
-                }
+//                if (i == 0) {
+//                    blockGraph.put(waitList.get(0), new ArrayList<>());
+//                    continue;
+//                }
+//                if(!blockGraph.containsKey(waitList.get(i))) {
+//                    blockGraph.put(waitList.get(i) , new ArrayList<>());
+//                }
                 blockGraph.get(waitList.get(i)).add(waitList.get(i-1));
             }
         }
@@ -103,7 +157,14 @@ public class DeadlockDetector {
         // construct indegree map
         Map<String, Integer> computeIndegree = new HashMap<>();
 
+        for (String key: blockGraph.keySet()) {
+            computeIndegree.put(key, 0);
+        }
+
         blockGraph.forEach((k, v) -> {
+//            if (v.size() == 0) {
+//                computeIndegree.put(v.get(0), 0);
+//            }
             for(String s : v) {
                 if(!computeIndegree.containsKey(s)) {
                     computeIndegree.put(s, 0);
@@ -127,14 +188,27 @@ public class DeadlockDetector {
         while(!queueForBFS.isEmpty()) {
             String temp = queueForBFS.poll();
             nonCycles.add(temp);
-            blockGraph.forEach((k,v) -> {
-                computeIndegree.put(k, computeIndegree.get(k) - 1);
 
-                if(computeIndegree.get(k).intValue() == 0) {
-                    queueForBFS.add(k);
+            List<String> tmp  = blockGraph.get(temp);
+            if (tmp == null) continue;
+            for(String elem : blockGraph.get(temp)) {
+
+                computeIndegree.put(elem, computeIndegree.get(elem) -1);
+
+                if(computeIndegree.get(elem) == 0) {
+                    queueForBFS.add(elem);
                 }
-            });
-            ++numOfVisited;
+
+                ++numOfVisited;
+            }
+//            blockGraph.forEach((k,v) -> {
+//                computeIndegree.put(k, computeIndegree.get(k) - 1);
+//
+//                if(computeIndegree.get(k).intValue() == 0) {
+//                    queueForBFS.add(k);
+//                }
+//            });
+//            ++numOfVisited;
         }
 
         // there is a cycle
@@ -143,13 +217,22 @@ public class DeadlockDetector {
         }
 
         // final bool
-        // there cannot be a deadlock if there is only one transcation
+        // there cannot be a deadlock if there is only one transaction
         if (victimSiteList.size() == 1 || victimSiteList.isEmpty()) {
             return false;
         }
 
         return true;
     }
+
+    /**
+     * This function will be invoked when the above isDeadlock returns true
+     * and will give the youngest transaction that is causing the deadlock
+     *
+     * No side effects.
+     * @param transactions
+     * @return String of the youngest transaction's TID
+     */
 
     public String getVictimAbortionTxID(Map<String, Transaction> transactions) {
         String vimctimID = "";

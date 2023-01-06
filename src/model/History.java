@@ -1,3 +1,8 @@
+/**
+ * @author Yunjeon Lee, Kyu Doun Sim
+ * @date Nov 27th - Dec 1st, 2022
+ */
+
 package model;
 
 public class History {
@@ -8,6 +13,16 @@ public class History {
     private String committedBy;
     private Long timestamp;
 
+    /**
+     * Construct for History
+     * The side effect is that it will allocate memory to create a History.
+     *
+     * @param siteId
+     * @param varName
+     * @param value
+     * @param committedBy
+     * @param timestamp
+     */
     public History(Integer siteId, String varName, Integer value, String committedBy, Long timestamp) {
         this.siteId = siteId;
         this.variableName = varName;
@@ -16,7 +31,21 @@ public class History {
         this.timestamp = timestamp;
     }
 
+    /**
+     * Accessor for Timestamp
+     *
+     * No side effect
+     *
+     * @return Long of timestamp
+     */
     public Long getTimestamp() {return timestamp;}
 
+    /**
+     * Accessor of the SnapshotValue
+     *
+     * No side effect
+     *
+     * @return Integer of value
+     */
     public Integer getSnapshotValue() {return value;}
 }

@@ -1,0 +1,8 @@
+begin(T2)
+begin(T1)
+W(T2, x2, 777)
+R(T2, x2)
+R(T1, x2)
+W(T1, x2, 700)
+end(T2)
+end(T1)
